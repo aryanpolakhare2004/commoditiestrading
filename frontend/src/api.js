@@ -1,0 +1,21 @@
+const BASE = "http://127.0.0.1:8010";
+
+async function get(path) {
+  const res = await fetch(`${BASE}${path}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText}: ${body}`);
+  }
+  return res.json();
+}
+
+export const api = {
+  commodities: () => get("/api/commodities"),
+  overview: (period = "6mo") => get(`/api/overview?period=${period}`),
+  history: (symbol, period = "1y", interval = "1d") =>
+    get(`/api/history/${encodeURIComponent(symbol)}?period=${period}&interval=${interval}`),
+  analysis: (symbol, period = "1y") =>
+    get(`/api/analysis/${encodeURIComponent(symbol)}?period=${period}`),
+  correlation: (period = "6mo") => get(`/api/correlation?period=${period}`),
+  news: (symbol, limit = 8) => get(`/api/news/${encodeURIComponent(symbol)}?limit=${limit}`),
+};

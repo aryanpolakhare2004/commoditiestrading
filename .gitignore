@@ -1,0 +1,7 @@
+node_modules/
+dist/
+__pycache__/
+*.pyc
+frontend/vite.log
+backend/uvicorn.log
+.env
