@@ -7,7 +7,7 @@ import yfinance as yf
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from analysis import build_signal, dataframe_to_series, pct_change_over
+from analysis import build_seasonality, build_signal, dataframe_to_series, pct_change_over
 from commodities import BY_SYMBOL, COMMODITIES, SECTORS
 
 app = FastAPI(title="Commodities Dashboard API")
@@ -192,6 +192,20 @@ def correlation(period: str = "6mo"):
             })
 
     payload = {"symbols": list(corr.index), "matrix": matrix}
+    cache_set(cache_key, payload)
+    return payload
+
+
+@app.get("/api/seasonality/{symbol}")
+def seasonality(symbol: str, years: int = 10):
+    _validate_symbol(symbol)
+    years = max(3, min(years, 25))
+    cache_key = f"seasonality:{symbol}:{years}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+    df = _history(symbol, f"{years + 1}y")
+    payload = {"symbol": symbol, "meta": BY_SYMBOL[symbol], **build_seasonality(df, years)}
     cache_set(cache_key, payload)
     return payload
 

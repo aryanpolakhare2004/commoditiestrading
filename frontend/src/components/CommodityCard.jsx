@@ -1,7 +1,7 @@
 import Sparkline from "./Sparkline.jsx";
 import Delta from "./Delta.jsx";
 
-export default function CommodityCard({ commodity, onSelect }) {
+export default function CommodityCard({ commodity, onSelect, watched, onToggleWatch, alertTriggered }) {
   const { name, symbol, sector, unit, last, change1d, change5d, sparkline, available } = commodity;
 
   if (!available) {
@@ -14,14 +14,36 @@ export default function CommodityCard({ commodity, onSelect }) {
   }
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onSelect(symbol)}
-      style={{ ...cardStyle, cursor: "pointer", textAlign: "left" }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onSelect(symbol);
+      }}
+      style={{
+        ...cardStyle,
+        cursor: "pointer",
+        borderColor: alertTriggered ? "var(--critical)" : "var(--border)",
+      }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-primary)" }}>{name}</div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleWatch(symbol);
+              }}
+              aria-label={watched ? "Remove from watchlist" : "Add to watchlist"}
+              aria-pressed={watched}
+              style={starButtonStyle}
+            >
+              <span style={{ color: watched ? "var(--warning)" : "var(--text-muted)" }}>{watched ? "★" : "☆"}</span>
+            </button>
+            <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-primary)" }}>{name}</div>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 22 }}>
             {symbol.replace("=F", "")} · {sector}
           </div>
         </div>
@@ -33,11 +55,18 @@ export default function CommodityCard({ commodity, onSelect }) {
         </span>
         <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{unit}</span>
       </div>
-      <div style={{ marginTop: 6, display: "flex", gap: 12 }}>
-        <Delta value={change1d} label="1D" />
-        <Delta value={change5d} label="5D" />
+      <div style={{ marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 12 }}>
+          <Delta value={change1d} label="1D" />
+          <Delta value={change5d} label="5D" />
+        </div>
+        {alertTriggered && (
+          <span style={{ fontSize: 11, fontWeight: 600, color: "var(--critical)" }} title="An alert threshold has been crossed">
+            ⚠ Alert
+          </span>
+        )}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -49,4 +78,14 @@ const cardStyle = {
   minWidth: 0,
   font: "inherit",
   color: "inherit",
+  textAlign: "left",
+};
+
+const starButtonStyle = {
+  border: "none",
+  background: "none",
+  cursor: "pointer",
+  fontSize: 16,
+  lineHeight: 1,
+  padding: 0,
 };

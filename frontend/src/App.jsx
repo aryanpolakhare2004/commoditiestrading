@@ -1,15 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "./api.js";
 import Overview from "./components/Overview.jsx";
 import DetailView from "./components/DetailView.jsx";
 import CorrelationView from "./components/CorrelationView.jsx";
+import AlertsPanel from "./components/AlertsPanel.jsx";
+import { isAlertTriggered, loadAlerts, loadWatchlist, saveAlerts, saveWatchlist } from "./storage.js";
 
 export default function App() {
-  const [tab, setTab] = useState("overview"); // overview | correlation
+  const [tab, setTab] = useState("overview"); // overview | correlation | alerts
   const [selectedSymbol, setSelectedSymbol] = useState(null);
   const [meta, setMeta] = useState(null);
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState(null);
+  const [watchlist, setWatchlist] = useState(() => loadWatchlist());
+  const [alerts, setAlerts] = useState(() => loadAlerts());
 
   useEffect(() => {
     api.commodities().then(setMeta).catch((e) => setError(e.message));
@@ -30,6 +34,33 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => saveWatchlist(watchlist), [watchlist]);
+  useEffect(() => saveAlerts(alerts), [alerts]);
+
+  function toggleWatch(symbol) {
+    setWatchlist((prev) => (prev.includes(symbol) ? prev.filter((s) => s !== symbol) : [...prev, symbol]));
+  }
+
+  function addAlert(alert) {
+    setAlerts((prev) => [...prev, { ...alert, id: `${alert.symbol}-${alert.type}-${Date.now()}` }]);
+  }
+
+  function removeAlert(id) {
+    setAlerts((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  const triggeredCount = useMemo(() => {
+    if (!overview) return 0;
+    const bySymbol = new Map(overview.commodities.map((c) => [c.symbol, c]));
+    return alerts.filter((a) => isAlertTriggered(a, bySymbol.get(a.symbol))).length;
+  }, [alerts, overview]);
+
+  const triggeredSymbols = useMemo(() => {
+    if (!overview) return new Set();
+    const bySymbol = new Map(overview.commodities.map((c) => [c.symbol, c]));
+    return new Set(alerts.filter((a) => isAlertTriggered(a, bySymbol.get(a.symbol))).map((a) => a.symbol));
+  }, [alerts, overview]);
+
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", padding: "24px 20px 60px" }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 8 }}>
@@ -46,6 +77,9 @@ export default function App() {
             </TabButton>
             <TabButton active={tab === "correlation"} onClick={() => setTab("correlation")}>
               Correlation
+            </TabButton>
+            <TabButton active={tab === "alerts"} onClick={() => setTab("alerts")}>
+              Alerts{triggeredCount > 0 ? ` (${triggeredCount})` : ""}
             </TabButton>
           </nav>
         )}
@@ -68,15 +102,32 @@ export default function App() {
       {error && <div style={{ color: "var(--critical)", marginBottom: 16 }}>Failed to load data: {error}</div>}
 
       {selectedSymbol ? (
-        <DetailView symbol={selectedSymbol} onBack={() => setSelectedSymbol(null)} />
+        <DetailView
+          symbol={selectedSymbol}
+          onBack={() => setSelectedSymbol(null)}
+          allCommodities={meta?.commodities || []}
+          watched={watchlist.includes(selectedSymbol)}
+          onToggleWatch={toggleWatch}
+        />
       ) : tab === "overview" ? (
         overview && meta ? (
-          <Overview overview={overview} sectors={meta.sectors} onSelect={setSelectedSymbol} />
+          <Overview
+            overview={overview}
+            sectors={meta.sectors}
+            onSelect={setSelectedSymbol}
+            watchlist={watchlist}
+            onToggleWatch={toggleWatch}
+            triggeredSymbols={triggeredSymbols}
+          />
         ) : (
           !error && <div style={{ color: "var(--text-muted)" }}>Loading market data…</div>
         )
-      ) : (
+      ) : tab === "correlation" ? (
         <CorrelationView />
+      ) : (
+        meta && (
+          <AlertsPanel allCommodities={meta.commodities} overview={overview} alerts={alerts} onAdd={addAlert} onRemove={removeAlert} />
+        )
       )}
     </div>
   );

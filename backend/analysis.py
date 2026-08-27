@@ -153,3 +153,45 @@ def _n(v):
     if v is None or (isinstance(v, float) and np.isnan(v)):
         return None
     return round(float(v), 4)
+
+
+def build_seasonality(df: pd.DataFrame, years: int = 10) -> dict:
+    """Average cumulative return by calendar day across past years vs. the current year."""
+    close = df["Close"].copy()
+    close.index = pd.to_datetime(close.index).tz_localize(None)
+    # Drop Feb 29 so day-of-year stays 1-365 across leap and non-leap years alike.
+    close = close[~((close.index.month == 2) & (close.index.day == 29))]
+
+    frame = pd.DataFrame({"close": close})
+    frame["year"] = frame.index.year
+    frame["doy"] = frame.index.dayofyear
+
+    current_year = frame["year"].max()
+    pct_from_year_start = frame.groupby("year")["close"].transform(lambda s: (s / s.iloc[0] - 1) * 100)
+    frame["pct"] = pct_from_year_start
+
+    history_years = sorted(y for y in frame["year"].unique() if y < current_year)
+    history_years = history_years[-years:]
+    historical = frame[frame["year"].isin(history_years)]
+    seasonal_avg = historical.groupby("doy")["pct"].mean()
+    seasonal_count = historical.groupby("doy")["pct"].count()
+
+    current = frame[frame["year"] == current_year].set_index("doy")["pct"]
+
+    ref_year = 2001  # non-leap reference year for day-of-year -> "Mon DD" labels
+    series = []
+    for doy in range(1, 366):
+        label = (pd.Timestamp(year=ref_year, month=1, day=1) + pd.Timedelta(days=doy - 1)).strftime("%b %d")
+        series.append({
+            "doy": doy,
+            "label": label,
+            "seasonalAvg": _n(seasonal_avg.get(doy)),
+            "yearsSampled": int(seasonal_count.get(doy, 0)),
+            "currentYear": _n(current.get(doy)),
+        })
+
+    return {
+        "currentYear": int(current_year),
+        "yearsCovered": len(history_years),
+        "series": series,
+    }
