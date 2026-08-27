@@ -19,4 +19,5 @@ export const api = {
   correlation: (period = "6mo") => get(`/api/correlation?period=${period}`),
   news: (symbol, limit = 8) => get(`/api/news/${encodeURIComponent(symbol)}?limit=${limit}`),
   seasonality: (symbol, years = 10) => get(`/api/seasonality/${encodeURIComponent(symbol)}?years=${years}`),
+  screener: () => get(`/api/screener`),
 };

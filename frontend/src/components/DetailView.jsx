@@ -327,7 +327,25 @@ export default function DetailView({ symbol, onBack, allCommodities, watched, on
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr)", gap: 16, marginTop: 16, marginBottom: 40 }}>
         <div style={panelStyle}>
-          <SectionLabel>News</SectionLabel>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <SectionLabel>News</SectionLabel>
+            {news?.sentiment && news.sentiment.count > 0 && (
+              <span
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color:
+                    news.sentiment.label === "Positive"
+                      ? "var(--good)"
+                      : news.sentiment.label === "Negative"
+                        ? "var(--critical)"
+                        : "var(--text-muted)",
+                }}
+              >
+                Sentiment: {news.sentiment.label}
+              </span>
+            )}
+          </div>
           {news ? <NewsList items={news.items} /> : <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading news…</div>}
         </div>
       </div>

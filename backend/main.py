@@ -1,4 +1,5 @@
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 import numpy as np
@@ -9,6 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from analysis import build_seasonality, build_signal, dataframe_to_series, pct_change_over
 from commodities import BY_SYMBOL, COMMODITIES, SECTORS
+from screener import build_screener_entry
+from sentiment import aggregate_sentiment, score_headlines
 
 app = FastAPI(title="Commodities Dashboard API")
 
@@ -210,10 +213,8 @@ def seasonality(symbol: str, years: int = 10):
     return payload
 
 
-@app.get("/api/news/{symbol}")
-def news(symbol: str, limit: int = 8):
-    _validate_symbol(symbol)
-    cache_key = f"news:{symbol}"
+def _fetch_news_raw(symbol: str, limit: int = 8) -> list[dict]:
+    cache_key = f"newsraw:{symbol}:{limit}"
     cached = cache_get(cache_key)
     if cached is not None:
         return cached
@@ -233,7 +234,62 @@ def news(symbol: str, limit: int = 8):
         pub_date = content.get("pubDate") or item.get("providerPublishTime")
         out.append({"title": title, "link": link, "publisher": publisher, "publishedAt": pub_date})
 
-    payload = {"symbol": symbol, "items": out}
+    cache_set(cache_key, out)
+    return out
+
+
+@app.get("/api/news/{symbol}")
+def news(symbol: str, limit: int = 8):
+    _validate_symbol(symbol)
+    cache_key = f"news:{symbol}:{limit}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    raw = _fetch_news_raw(symbol, limit)
+    scored = score_headlines(raw)
+    payload = {"symbol": symbol, "items": scored, "sentiment": aggregate_sentiment(scored)}
+    cache_set(cache_key, payload)
+    return payload
+
+
+@app.get("/api/screener")
+def screener():
+    cache_key = "screener"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    symbols = [c["symbol"] for c in COMMODITIES]
+    raw = yf.download(
+        tickers=symbols,
+        period="6mo",
+        interval="1d",
+        group_by="ticker",
+        threads=True,
+        auto_adjust=True,
+        progress=False,
+    )
+
+    def score_one(c):
+        symbol = c["symbol"]
+        try:
+            close = raw[symbol]["Close"].dropna()
+        except Exception:
+            close = pd.Series(dtype=float)
+        if close.empty:
+            return None
+        df = pd.DataFrame({"Close": close})
+        news_items = _fetch_news_raw(symbol, limit=8)
+        sentiment_summary = aggregate_sentiment(score_headlines(news_items))
+        return build_screener_entry(c, df, sentiment_summary)
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        entries = list(pool.map(score_one, COMMODITIES))
+    entries = [e for e in entries if e is not None]
+    entries.sort(key=lambda e: e["compositeScore"], reverse=True)
+
+    payload = {"asOf": pd.Timestamp.utcnow().isoformat(), "entries": entries}
     cache_set(cache_key, payload)
     return payload
 

@@ -20,6 +20,16 @@ COMMODITIES = [
     {"symbol": "KC=F", "name": "Coffee", "sector": "Agriculture", "unit": "USD/lb"},
     {"symbol": "SB=F", "name": "Sugar", "sector": "Agriculture", "unit": "USD/lb"},
     {"symbol": "CT=F", "name": "Cotton", "sector": "Agriculture", "unit": "USD/lb"},
+    {"symbol": "CC=F", "name": "Cocoa", "sector": "Agriculture", "unit": "USD/mt"},
+    {"symbol": "OJ=F", "name": "Orange Juice", "sector": "Agriculture", "unit": "USD/lb"},
+    {"symbol": "ZO=F", "name": "Oats", "sector": "Agriculture", "unit": "USD/bu"},
+    {"symbol": "ZR=F", "name": "Rough Rice", "sector": "Agriculture", "unit": "USD/cwt"},
+    {"symbol": "ZM=F", "name": "Soybean Meal", "sector": "Agriculture", "unit": "USD/ton"},
+    {"symbol": "ZL=F", "name": "Soybean Oil", "sector": "Agriculture", "unit": "USD/lb"},
+    # Livestock
+    {"symbol": "LE=F", "name": "Live Cattle", "sector": "Livestock", "unit": "USD/lb"},
+    {"symbol": "GF=F", "name": "Feeder Cattle", "sector": "Livestock", "unit": "USD/lb"},
+    {"symbol": "HE=F", "name": "Lean Hogs", "sector": "Livestock", "unit": "USD/lb"},
 ]
 
 BY_SYMBOL = {c["symbol"]: c for c in COMMODITIES}
