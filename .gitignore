@@ -5,4 +5,5 @@ __pycache__/
 frontend/vite.log
 backend/uvicorn.log
 backend/uvicorn.err.log
+backend/data/
 .env

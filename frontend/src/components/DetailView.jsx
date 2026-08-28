@@ -10,6 +10,7 @@ import VolatilityChart from "./VolatilityChart.jsx";
 import DrawdownChart from "./DrawdownChart.jsx";
 import ReturnsHistogram from "./ReturnsHistogram.jsx";
 import SeasonalityChart from "./SeasonalityChart.jsx";
+import BacktestEvidence from "./BacktestEvidence.jsx";
 import SignalBadge from "./SignalBadge.jsx";
 import Delta from "./Delta.jsx";
 import NewsList from "./NewsList.jsx";
@@ -23,6 +24,14 @@ const PERIODS = [
   { label: "1Y", value: "1y" },
   { label: "5Y", value: "5y" },
   { label: "Max", value: "max" },
+];
+
+const TABS = [
+  { key: "chart", label: "Chart" },
+  { key: "technicals", label: "Technicals" },
+  { key: "risk", label: "Risk & Backtest" },
+  { key: "seasonality", label: "Seasonality" },
+  { key: "news", label: "News" },
 ];
 
 const COMPARE_COLORS = ["var(--series-2)", "var(--series-3)", "var(--series-4)", "var(--series-5)"];
@@ -57,10 +66,12 @@ function buildCompareData(primarySymbol, primarySeries, compareSeriesMap) {
 
 export default function DetailView({ symbol, onBack, allCommodities, watched, onToggleWatch }) {
   const [period, setPeriod] = useState("1y");
+  const [tab, setTab] = useState("chart");
   const [history, setHistory] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [news, setNews] = useState(null);
   const [seasonality, setSeasonality] = useState(null);
+  const [backtest, setBacktest] = useState(null);
   const [error, setError] = useState(null);
   const [hoverPoint, setHoverPoint] = useState(null);
   const [compare, setCompare] = useState([]);
@@ -109,7 +120,20 @@ export default function DetailView({ symbol, onBack, allCommodities, watched, on
   }, [symbol]);
 
   useEffect(() => {
+    let cancelled = false;
+    setBacktest(null);
+    api
+      .backtest(symbol)
+      .then((b) => !cancelled && setBacktest(b))
+      .catch(() => !cancelled && setBacktest(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
+
+  useEffect(() => {
     setCompare([]);
+    setTab("chart");
   }, [symbol]);
 
   useEffect(() => {
@@ -236,127 +260,174 @@ export default function DetailView({ symbol, onBack, allCommodities, watched, on
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, margin: "18px 0 4px" }}>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {PERIODS.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => setPeriod(p.value)}
-              style={{
-                ...periodButtonStyle,
-                background: period === p.value ? "var(--series-1)" : "transparent",
-                color: period === p.value ? "#fff" : "var(--text-secondary)",
-                borderColor: period === p.value ? "var(--series-1)" : "var(--border)",
-              }}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          {history && (
-            <button
-              onClick={() => downloadSeriesCsv(`${symbol.replace("=F", "")}_${period}.csv`, history.series)}
-              style={exportButtonStyle}
-              title="Download this chart's data as CSV"
-            >
-              ⭳ CSV
-            </button>
-          )}
-          {compare.map((sym, i) => {
-            const c = allCommodities.find((x) => x.symbol === sym);
-            return (
-              <span key={sym} style={{ ...chipStyle, borderColor: COMPARE_COLORS[i % COMPARE_COLORS.length] }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: COMPARE_COLORS[i % COMPARE_COLORS.length], display: "inline-block" }} />
-                {c ? c.name : sym}
-                <button
-                  onClick={() => setCompare((prev) => prev.filter((s) => s !== sym))}
-                  style={chipRemoveStyle}
-                  aria-label={`Remove ${c ? c.name : sym} from comparison`}
-                >
-                  ×
-                </button>
-              </span>
-            );
-          })}
-          <ComparePicker
-            allCommodities={allCommodities}
-            excludeSymbols={[symbol, ...compare]}
-            onAdd={(sym) => setCompare((prev) => [...prev, sym])}
-            disabled={compare.length >= MAX_COMPARE}
-          />
-        </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "20px 0 4px" }}>
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            style={{
+              ...tabButtonStyle,
+              background: tab === t.key ? "var(--surface-1)" : "transparent",
+              color: tab === t.key ? "var(--text-primary)" : "var(--text-secondary)",
+              borderColor: tab === t.key ? "var(--border)" : "transparent",
+              borderBottomColor: tab === t.key ? "var(--surface-1)" : "transparent",
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {history ? (
-        <div style={panelStyle}>
-          {isComparing ? (
-            compareData ? (
-              <CompareChart data={compareData} seriesMeta={compareSeriesMeta} />
-            ) : (
-              <div style={{ height: 360, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
-                Loading comparison…
+      <div style={{ ...panelStyle, borderTopLeftRadius: 0 }}>
+        {tab === "chart" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {PERIODS.map((p) => (
+                  <button
+                    key={p.value}
+                    onClick={() => setPeriod(p.value)}
+                    style={{
+                      ...periodButtonStyle,
+                      background: period === p.value ? "var(--series-1)" : "transparent",
+                      color: period === p.value ? "#fff" : "var(--text-secondary)",
+                      borderColor: period === p.value ? "var(--series-1)" : "var(--border)",
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
               </div>
-            )
-          ) : (
-            <PriceChart series={history.series} positive={periodPositive} onHover={setHoverPoint} />
-          )}
-          <div style={{ marginTop: 4 }}>
-            <VolumeChart series={history.series} />
-          </div>
-          <SectionLabel>RSI (14)</SectionLabel>
-          <RsiChart series={history.series} />
-          <SectionLabel>MACD (12, 26, 9)</SectionLabel>
-          <MacdChart series={history.series} />
-          <SectionLabel>Volatility (21-day, annualized)</SectionLabel>
-          <VolatilityChart series={history.series} />
-          <SectionLabel>Drawdown from peak</SectionLabel>
-          <DrawdownChart series={history.series} />
-          <SectionLabel>Daily Return Distribution</SectionLabel>
-          <ReturnsHistogram series={history.series} />
-        </div>
-      ) : (
-        !error && <div style={{ ...panelStyle, color: "var(--text-muted)" }}>Loading chart data…</div>
-      )}
 
-      <div style={{ ...panelStyle, marginTop: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Seasonality</div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
-          Cumulative % return from the start of the calendar year, day by day — this year against the
-          {seasonality ? ` ${seasonality.yearsCovered}-year` : ""} historical average. Useful for agriculture and energy
-          commodities with recurring annual patterns; less meaningful for instruments without seasonal drivers.
-        </div>
-        {seasonality ? (
-          <SeasonalityChart series={seasonality.series} yearsCovered={seasonality.yearsCovered} />
-        ) : (
-          <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading seasonality…</div>
-        )}
-      </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                {history && (
+                  <button
+                    onClick={() => downloadSeriesCsv(`${symbol.replace("=F", "")}_${period}.csv`, history.series)}
+                    style={exportButtonStyle}
+                    title="Download this chart's data as CSV"
+                  >
+                    ⭳ CSV
+                  </button>
+                )}
+                {compare.map((sym, i) => {
+                  const c = allCommodities.find((x) => x.symbol === sym);
+                  return (
+                    <span key={sym} style={{ ...chipStyle, borderColor: COMPARE_COLORS[i % COMPARE_COLORS.length] }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 2, background: COMPARE_COLORS[i % COMPARE_COLORS.length], display: "inline-block" }} />
+                      {c ? c.name : sym}
+                      <button
+                        onClick={() => setCompare((prev) => prev.filter((s) => s !== sym))}
+                        style={chipRemoveStyle}
+                        aria-label={`Remove ${c ? c.name : sym} from comparison`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+                <ComparePicker
+                  allCommodities={allCommodities}
+                  excludeSymbols={[symbol, ...compare]}
+                  onAdd={(sym) => setCompare((prev) => [...prev, sym])}
+                  disabled={compare.length >= MAX_COMPARE}
+                />
+              </div>
+            </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr)", gap: 16, marginTop: 16, marginBottom: 40 }}>
-        <div style={panelStyle}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <SectionLabel>News</SectionLabel>
-            {news?.sentiment && news.sentiment.count > 0 && (
-              <span
-                style={{
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  color:
-                    news.sentiment.label === "Positive"
-                      ? "var(--good)"
-                      : news.sentiment.label === "Negative"
-                        ? "var(--critical)"
-                        : "var(--text-muted)",
-                }}
-              >
-                Sentiment: {news.sentiment.label}
-              </span>
+            {history ? (
+              <div>
+                {isComparing ? (
+                  compareData ? (
+                    <CompareChart data={compareData} seriesMeta={compareSeriesMeta} />
+                  ) : (
+                    <div style={{ height: 360, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
+                      Loading comparison…
+                    </div>
+                  )
+                ) : (
+                  <PriceChart series={history.series} positive={periodPositive} onHover={setHoverPoint} />
+                )}
+                <div style={{ marginTop: 4 }}>
+                  <VolumeChart series={history.series} />
+                </div>
+              </div>
+            ) : (
+              !error && <div style={{ color: "var(--text-muted)" }}>Loading chart data…</div>
             )}
           </div>
-          {news ? <NewsList items={news.items} /> : <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading news…</div>}
-        </div>
+        )}
+
+        {tab === "technicals" &&
+          (history ? (
+            <div>
+              <SectionLabel first>RSI (14)</SectionLabel>
+              <RsiChart series={history.series} />
+              <SectionLabel>MACD (12, 26, 9)</SectionLabel>
+              <MacdChart series={history.series} />
+              <SectionLabel>Volatility (21-day, annualized)</SectionLabel>
+              <VolatilityChart series={history.series} />
+            </div>
+          ) : (
+            <div style={{ color: "var(--text-muted)" }}>Loading…</div>
+          ))}
+
+        {tab === "risk" && (
+          <div>
+            {history ? (
+              <>
+                <SectionLabel first>Drawdown from peak</SectionLabel>
+                <DrawdownChart series={history.series} />
+                <SectionLabel>Daily Return Distribution</SectionLabel>
+                <ReturnsHistogram series={history.series} />
+              </>
+            ) : (
+              <div style={{ color: "var(--text-muted)" }}>Loading…</div>
+            )}
+            <SectionLabel>Historical Backtest of the Technical Signal</SectionLabel>
+            <BacktestEvidence data={backtest} />
+          </div>
+        )}
+
+        {tab === "seasonality" && (
+          <div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
+              Cumulative % return from the start of the calendar year, day by day — this year against the
+              {seasonality ? ` ${seasonality.yearsCovered}-year` : ""} historical average. Useful for agriculture and
+              energy commodities with recurring annual patterns; less meaningful for instruments without seasonal
+              drivers.
+            </div>
+            {seasonality ? (
+              <SeasonalityChart series={seasonality.series} yearsCovered={seasonality.yearsCovered} />
+            ) : (
+              <div style={{ color: "var(--text-muted)" }}>Loading seasonality…</div>
+            )}
+          </div>
+        )}
+
+        {tab === "news" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>Recent headlines</div>
+              {news?.sentiment && news.sentiment.count > 0 && (
+                <span
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    color:
+                      news.sentiment.label === "Positive"
+                        ? "var(--good)"
+                        : news.sentiment.label === "Negative"
+                          ? "var(--critical)"
+                          : "var(--text-muted)",
+                  }}
+                >
+                  Sentiment: {news.sentiment.label}
+                </span>
+              )}
+            </div>
+            {news ? <NewsList items={news.items} /> : <div style={{ color: "var(--text-muted)" }}>Loading news…</div>}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -371,9 +442,11 @@ function Stat({ label, value }) {
   );
 }
 
-function SectionLabel({ children }) {
+function SectionLabel({ children, first }) {
   return (
-    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", margin: "16px 0 4px" }}>{children}</div>
+    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", margin: first ? "0 0 4px" : "16px 0 4px" }}>
+      {children}
+    </div>
   );
 }
 
@@ -391,6 +464,18 @@ const panelStyle = {
   border: "1px solid var(--border)",
   borderRadius: 12,
   padding: 16,
+};
+
+const tabButtonStyle = {
+  border: "1px solid transparent",
+  borderBottom: "1px solid transparent",
+  borderTopLeftRadius: 10,
+  borderTopRightRadius: 10,
+  padding: "8px 16px",
+  fontSize: 13,
+  fontWeight: 500,
+  cursor: "pointer",
+  marginBottom: -1,
 };
 
 const periodButtonStyle = {

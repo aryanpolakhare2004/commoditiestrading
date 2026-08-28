@@ -25,6 +25,21 @@ function ScoreTag({ label, value }) {
   );
 }
 
+function BacktestTag({ backtest }) {
+  const edge = backtest?.bullishEdgeVsBaseline;
+  if (edge === null || edge === undefined) return null;
+  const n = backtest.bullishSetup?.sampleSize;
+  return (
+    <span style={{ fontSize: 11, color: "var(--text-muted)" }} title={`${n} historical instances of this setup`}>
+      Backtest edge{" "}
+      <span style={{ color: edge >= 0 ? "var(--delta-up)" : "var(--delta-down)", fontWeight: 600 }}>
+        {edge >= 0 ? "+" : ""}
+        {edge.toFixed(2)}pp
+      </span>
+    </span>
+  );
+}
+
 const FILTERS = ["All", "Buy signals", "Sell signals"];
 
 export default function SuggestionsPanel({ onSelect }) {
@@ -57,7 +72,9 @@ export default function SuggestionsPanel({ onSelect }) {
         }}
       >
         Ranked by a simple, transparent rule: technical trend score + price momentum + news sentiment, added
-        together — not a prediction or backtested strategy. Verify independently before acting.
+        together. The "backtest edge" on each row is a separate, honestly-computed statistic — how this
+        commodity's own history performed after similar technical setups, vs. just holding it — not a prediction.
+        Verify independently before acting.
       </div>
 
       <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
@@ -82,7 +99,12 @@ export default function SuggestionsPanel({ onSelect }) {
       </div>
 
       {error && <div style={{ color: "var(--critical)" }}>{error}</div>}
-      {!data && !error && <div style={{ color: "var(--text-muted)" }}>Scoring all commodities — this can take a few seconds…</div>}
+      {!data && !error && (
+        <div style={{ color: "var(--text-muted)" }}>
+          Scoring all commodities and running backtests — this can take up to a minute the first time as history
+          backfills, then it's cached.
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {entries.map((e) => (
@@ -98,6 +120,7 @@ export default function SuggestionsPanel({ onSelect }) {
                 <ScoreTag label="Technical" value={e.technicalScore} />
                 <ScoreTag label="Momentum" value={e.momentumScore} />
                 <ScoreTag label="Sentiment" value={e.sentimentScore} />
+                <BacktestTag backtest={e.backtest} />
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>

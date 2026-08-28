@@ -8,7 +8,9 @@ import yfinance as yf
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+import db
 from analysis import build_seasonality, build_signal, dataframe_to_series, pct_change_over
+from backtest import backtest_signal
 from commodities import BY_SYMBOL, COMMODITIES, SECTORS
 from screener import build_screener_entry
 from sentiment import aggregate_sentiment, score_headlines
@@ -43,16 +45,37 @@ def _validate_symbol(symbol: str) -> str:
     return symbol
 
 
-def _history(symbol: str, period: str, interval: str = "1d") -> pd.DataFrame:
-    cache_key = f"hist:{symbol}:{period}:{interval}"
+def _full_history(symbol: str) -> pd.DataFrame:
+    """The symbol's complete stored daily history, topped up from Yahoo Finance
+    if stale. Cached in-process for the TTL window since it's read on almost
+    every endpoint for a given symbol within a short span of requests."""
+    cache_key = f"fullhist:{symbol}"
     cached = cache_get(cache_key)
     if cached is not None:
         return cached
-    df = yf.Ticker(symbol).history(period=period, interval=interval, auto_adjust=True)
+    df = db.ensure_history(symbol)
     if df.empty:
         raise HTTPException(status_code=502, detail=f"No data returned for '{symbol}'")
     cache_set(cache_key, df)
     return df
+
+
+def _history(symbol: str, period: str, interval: str = "1d") -> pd.DataFrame:
+    if interval != "1d":
+        # Intraday bars aren't persisted — not currently used by the frontend,
+        # so fetch directly rather than growing the schema for it.
+        df = yf.Ticker(symbol).history(period=period, interval=interval, auto_adjust=True)
+        if df.empty:
+            raise HTTPException(status_code=502, detail=f"No data returned for '{symbol}'")
+        return df
+    return db.slice_period(_full_history(symbol), period)
+
+
+def _safe_full_history(symbol: str) -> pd.DataFrame:
+    try:
+        return _full_history(symbol)
+    except HTTPException:
+        return pd.DataFrame()
 
 
 @app.get("/api/commodities")
@@ -67,24 +90,16 @@ def overview(period: str = "6mo"):
     if cached is not None:
         return cached
 
-    symbols = [c["symbol"] for c in COMMODITIES]
-    raw = yf.download(
-        tickers=symbols,
-        period=period,
-        interval="1d",
-        group_by="ticker",
-        threads=True,
-        auto_adjust=True,
-        progress=False,
-    )
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        histories = dict(zip(
+            (c["symbol"] for c in COMMODITIES),
+            pool.map(lambda c: _safe_full_history(c["symbol"]), COMMODITIES),
+        ))
 
     results = []
     for c in COMMODITIES:
         symbol = c["symbol"]
-        try:
-            df = raw[symbol].dropna(how="all")
-        except Exception:
-            df = pd.DataFrame()
+        df = db.slice_period(histories.get(symbol, pd.DataFrame()), period)
         if df.empty:
             results.append({**c, "available": False})
             continue
@@ -161,22 +176,13 @@ def correlation(period: str = "6mo"):
         return cached
 
     symbols = [c["symbol"] for c in COMMODITIES]
-    raw = yf.download(
-        tickers=symbols,
-        period=period,
-        interval="1d",
-        group_by="ticker",
-        threads=True,
-        auto_adjust=True,
-        progress=False,
-    )
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        histories = dict(zip(symbols, pool.map(_safe_full_history, symbols)))
 
     closes = {}
     for symbol in symbols:
-        try:
-            s = raw[symbol]["Close"].dropna()
-        except Exception:
-            continue
+        s = db.slice_period(histories.get(symbol, pd.DataFrame()), period)
+        s = s["Close"].dropna() if not s.empty else pd.Series(dtype=float)
         if not s.empty:
             closes[symbol] = s
 
@@ -260,29 +266,17 @@ def screener():
     if cached is not None:
         return cached
 
-    symbols = [c["symbol"] for c in COMMODITIES]
-    raw = yf.download(
-        tickers=symbols,
-        period="6mo",
-        interval="1d",
-        group_by="ticker",
-        threads=True,
-        auto_adjust=True,
-        progress=False,
-    )
-
     def score_one(c):
         symbol = c["symbol"]
-        try:
-            close = raw[symbol]["Close"].dropna()
-        except Exception:
-            close = pd.Series(dtype=float)
-        if close.empty:
+        full = _safe_full_history(symbol)
+        if full.empty:
             return None
-        df = pd.DataFrame({"Close": close})
+        recent = db.slice_period(full, "6mo")
         news_items = _fetch_news_raw(symbol, limit=8)
         sentiment_summary = aggregate_sentiment(score_headlines(news_items))
-        return build_screener_entry(c, df, sentiment_summary)
+        entry = build_screener_entry(c, recent, sentiment_summary)
+        entry["backtest"] = backtest_signal(full)
+        return entry
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         entries = list(pool.map(score_one, COMMODITIES))
@@ -292,6 +286,25 @@ def screener():
     payload = {"asOf": pd.Timestamp.utcnow().isoformat(), "entries": entries}
     cache_set(cache_key, payload)
     return payload
+
+
+@app.get("/api/backtest/{symbol}")
+def backtest(symbol: str, forward_days: int = 21):
+    _validate_symbol(symbol)
+    forward_days = max(5, min(forward_days, 126))
+    cache_key = f"backtest:{symbol}:{forward_days}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+    df = _full_history(symbol)
+    payload = {"symbol": symbol, "meta": BY_SYMBOL[symbol], **backtest_signal(df, forward_days=forward_days)}
+    cache_set(cache_key, payload)
+    return payload
+
+
+@app.get("/api/db-status")
+def db_status():
+    return db.stats()
 
 
 @app.get("/api/health")
