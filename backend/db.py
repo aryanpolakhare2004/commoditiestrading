@@ -50,7 +50,46 @@ def _connect() -> sqlite3.Connection:
         """
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_price_symbol_date ON price_history(symbol, date)")
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS cot_history (
+            symbol TEXT NOT NULL,
+            report_date TEXT NOT NULL,
+            open_interest REAL,
+            managed_money_long REAL,
+            managed_money_short REAL,
+            producer_long REAL,
+            producer_short REAL,
+            PRIMARY KEY (symbol, report_date)
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_cot_symbol_date ON cot_history(symbol, report_date)")
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            date TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            description TEXT NOT NULL,
+            direction TEXT,
+            magnitude REAL,
+            detail TEXT,
+            UNIQUE(symbol, date, event_type)
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_events_symbol_date ON events(symbol, date)")
+
     return conn
+
+
+# Public alias — cftc.py and events.py share this SQLite file and need their
+# own tables in it without importing db's private name.
+connect = _connect
 
 
 def _safe_float(v):

@@ -62,11 +62,17 @@ def rolling_technical_score(df: pd.DataFrame) -> pd.Series:
 def _summarize(returns: pd.Series) -> dict | None:
     if len(returns) == 0:
         return None
+    wins = returns[returns > 0]
+    losses = returns[returns <= 0]
     return {
         "sampleSize": int(len(returns)),
         "avgReturn": round(float(returns.mean()) * 100, 2),
         "medianReturn": round(float(returns.median()) * 100, 2),
         "winRate": round(float((returns > 0).mean()) * 100, 1),
+        # Average magnitude of the winning trades and the losing trades separately —
+        # what an expected-value calculation needs, rather than just the blended average.
+        "avgWin": round(float(wins.mean()) * 100, 2) if len(wins) else 0.0,
+        "avgLoss": round(float(losses.mean()) * 100, 2) if len(losses) else 0.0,
     }
 
 

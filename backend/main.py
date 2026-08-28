@@ -8,7 +8,12 @@ import yfinance as yf
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+import cftc
 import db
+import events as events_module
+import opportunity
+import relationships
+import signals as signals_module
 from analysis import build_seasonality, build_signal, dataframe_to_series, pct_change_over
 from backtest import backtest_signal
 from commodities import BY_SYMBOL, COMMODITIES, SECTORS
@@ -298,6 +303,103 @@ def backtest(symbol: str, forward_days: int = 21):
         return cached
     df = _full_history(symbol)
     payload = {"symbol": symbol, "meta": BY_SYMBOL[symbol], **backtest_signal(df, forward_days=forward_days)}
+    cache_set(cache_key, payload)
+    return payload
+
+
+def _safe_positioning(symbol: str) -> dict | None:
+    try:
+        return cftc.positioning_signal(symbol)
+    except Exception:
+        return None
+
+
+def _safe_positioning_history(symbol: str) -> pd.DataFrame:
+    try:
+        return cftc.ensure_positioning(symbol)
+    except Exception:
+        return pd.DataFrame()
+
+
+@app.get("/api/positioning/{symbol}")
+def positioning(symbol: str):
+    _validate_symbol(symbol)
+    if symbol not in cftc.SYMBOL_TO_MARKET:
+        raise HTTPException(status_code=404, detail=f"No CFTC market mapping for '{symbol}'")
+    cache_key = f"positioning:{symbol}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+    sig = _safe_positioning(symbol)
+    payload = {"symbol": symbol, "meta": BY_SYMBOL[symbol], "positioning": sig}
+    cache_set(cache_key, payload)
+    return payload
+
+
+@app.get("/api/events")
+def event_feed(days: int = 14):
+    return {"events": events_module.recent_events(days=max(1, min(days, 90)))}
+
+
+@app.get("/api/opportunities")
+def opportunities():
+    """The full research pipeline for one request: signals -> event detection
+    -> asset mapping -> EV scoring -> ranking. See README for the architecture
+    this implements and what's intentionally NOT here yet (LLM-based news
+    event extraction and thesis writing)."""
+    cache_key = "opportunities"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    symbols = [c["symbol"] for c in COMMODITIES]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        histories = dict(zip(symbols, pool.map(_safe_full_history, symbols)))
+        positioning_signals = dict(zip(symbols, pool.map(_safe_positioning, symbols)))
+        positioning_histories = dict(zip(symbols, pool.map(_safe_positioning_history, symbols)))
+
+    # Cross-sectional stats need every symbol's data assembled first.
+    recent = {s: db.slice_period(h, "6mo") for s, h in histories.items() if not h.empty}
+    closes = {s: df["Close"].dropna() for s, df in recent.items() if not df["Close"].dropna().empty}
+    returns = pd.DataFrame(closes).pct_change().dropna(how="all")
+    corr_matrix = returns.corr()
+
+    dollar_volume = {}
+    for s, df in recent.items():
+        tail = df.tail(21)
+        if tail.empty or tail["Volume"].isna().all():
+            dollar_volume[s] = None
+        else:
+            dollar_volume[s] = float((tail["Close"] * tail["Volume"]).mean())
+
+    def build_one(c):
+        symbol = c["symbol"]
+        full = histories.get(symbol, pd.DataFrame())
+        if full.empty:
+            return None
+
+        bt = backtest_signal(full)
+        news_items = _fetch_news_raw(symbol, limit=8)
+        sentiment_summary = aggregate_sentiment(score_headlines(news_items))
+        sig = signals_module.compute_signals(full, positioning_signals.get(symbol), sentiment_summary)
+
+        price_events = events_module.detect_price_events(symbol, full)
+        pos_events = events_module.detect_positioning_events(symbol, positioning_histories.get(symbol, pd.DataFrame()))
+        all_events = price_events + pos_events
+        events_module.record_events(symbol, all_events)
+
+        corr_row = corr_matrix[symbol].to_dict() if symbol in corr_matrix else {}
+        related = relationships.related_via_correlation(symbol, corr_row)
+        dv_pct = opportunity.liquidity_percentile(symbol, dollar_volume)
+
+        return opportunity.build_opportunity(c, bt, sig, dv_pct, related, all_events)
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        entries = list(pool.map(build_one, COMMODITIES))
+    entries = [e for e in entries if e is not None]
+    entries.sort(key=lambda e: (e["opportunityScore"] is None, -(e["opportunityScore"] or 0)))
+
+    payload = {"asOf": pd.Timestamp.utcnow().isoformat(), "entries": entries}
     cache_set(cache_key, payload)
     return payload
 

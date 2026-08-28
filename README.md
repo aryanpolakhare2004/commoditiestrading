@@ -34,6 +34,66 @@ what's here.
 - **Alerts** — set a price or 1-day % change threshold per commodity; crossed
   thresholds flag the overview card and a badge on the Alerts tab. Checked
   against live data on every refresh, no push notifications.
+- **Research** — a small version of a "research engine" pipeline: raw data →
+  signals → event detection → asset mapping → EV scoring → backtest → ranked
+  opportunities. See its own section below.
+
+## The Research pipeline
+
+This follows a specific design goal: **don't build something that predicts
+prices directly** — build something that keeps asking *what changed, what's
+exposed to it, is it already priced in, and what's the risk/reward*, and
+keeps the language-understanding and the number-crunching in separate,
+inspectable stages instead of asking a model to do both at once.
+
+```
+raw data (price, CFTC positioning, news)
+    -> signals (independent z-scored factors)          backend/signals.py
+    -> event detection (rule-based, not LLM)            backend/events.py
+    -> asset mapping (curated + correlation-based)       backend/relationships.py
+    -> EV scoring                                        backend/opportunity.py
+    -> backtest (the EV inputs come from here)           backend/backtest.py
+    -> ranked opportunities                              GET /api/opportunities
+```
+
+- **Signals** (`backend/signals.py`) — five independent factors, each
+  z-scored against its own trailing history, combined with documented
+  (not backtested/optimized) starting weights: price momentum, trend vs.
+  200-day average, **CFTC Commitments-of-Traders positioning** (Managed
+  Money net position as % of open interest — a free, no-key public feed,
+  see `backend/cftc.py`), realized volatility (a headwind, not a tailwind),
+  and news sentiment.
+- **Event detection** (`backend/events.py`) — mechanical, not AI: compares
+  today's computed signals against their own recent history and flags
+  crossings — a 200-day-average cross, a volatility or momentum z-score
+  extreme, a technical signal flip, an unusually large week-over-week shift
+  in CFTC positioning. Persisted to a SQLite `events` table so re-running
+  detection on an already-scored day is a no-op, not a duplicate. Visible in
+  the Research tab's "What Changed" feed and `GET /api/events`.
+- **Asset mapping** (`backend/relationships.py`) — two independent sources,
+  kept separate: curated commodity-complex groupings and known cross-complex
+  economic links (corn as a cattle feed cost, the soybean crush spread,
+  crude oil into RBOB/heating oil), plus a purely statistical
+  correlation-based lookup computed from real daily returns. An event on one
+  instrument surfaces both.
+- **EV scoring** (`backend/opportunity.py`) — `EV = P(win) x Upside -
+  P(loss) x Downside`, using the *actual* historical win rate and average
+  win/loss size for the current setup (bullish or bearish) from the
+  backtest — not an invented probability. Adjusted for backtest sample-size
+  confidence, elevated volatility, and a liquidity percentile across the
+  universe (based on trailing dollar volume). Every component of the final
+  "opportunity score" ships in the API response, not just the number.
+- **The "thesis"** shown per opportunity in the Research tab is a
+  **template-assembled sentence from the structured facts above** — not
+  LLM-generated prose. That's a deliberate, documented placeholder: the
+  wider design calls for an LLM here specifically for its language strength
+  (reading something like "Ghana's cocoa forecast was cut due to
+  swollen-shoot disease" and extracting `{commodity: cocoa, factor: supply,
+  direction: bullish, severity: high}`), while every number stays in
+  deterministic Python. That step needs a live model API key and isn't
+  wired in yet — see `backend/opportunity.py`'s docstring for where it slots
+  in. FRED/EIA/USDA (rates, inventories, crop forecasts) are the same kind
+  of documented-but-not-built extension, each needing its own free API key.
 
 ### The "is this a buy" answer, and its limits
 
@@ -102,5 +162,13 @@ change it in both places if you'd rather use something else.
 - Sentiment scoring (`backend/sentiment.py`) uses VADER, a rule-based lexicon
   scorer tuned for short, informal text — no model download or API key
   required, but it's not a nuanced reader of financial nuance either.
+- CFTC positioning data (`backend/cftc.py`) is free and needs no API key, but
+  CFTC renames contracts over time (natural gas moved from "NATURAL GAS" to
+  "HENRY HUB" at some point) — if a symbol's positioning goes stale, the
+  market name has probably changed again and `SYMBOL_TO_MARKET` needs a
+  re-check against the live dataset, not a re-guess. `GET
+  /api/opportunities` is the heaviest endpoint (positioning backfill +
+  price + news for all 28 symbols); expect up to ~30s on a fully cold cache,
+  then 5-minute cached like everything else.
 - Watchlist and alerts are stored in the browser's `localStorage`, per
   browser — they don't sync across devices or survive clearing site data.

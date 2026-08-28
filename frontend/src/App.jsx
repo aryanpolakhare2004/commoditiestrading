@@ -5,6 +5,7 @@ import DetailView from "./components/DetailView.jsx";
 import CorrelationView from "./components/CorrelationView.jsx";
 import AlertsPanel from "./components/AlertsPanel.jsx";
 import SuggestionsPanel from "./components/SuggestionsPanel.jsx";
+import ResearchPanel from "./components/ResearchPanel.jsx";
 import { isAlertTriggered, loadAlerts, loadWatchlist, saveAlerts, saveWatchlist } from "./storage.js";
 
 export default function App() {
@@ -82,6 +83,9 @@ export default function App() {
             <TabButton active={tab === "suggestions"} onClick={() => setTab("suggestions")}>
               Suggestions
             </TabButton>
+            <TabButton active={tab === "research"} onClick={() => setTab("research")}>
+              Research
+            </TabButton>
             <TabButton active={tab === "alerts"} onClick={() => setTab("alerts")}>
               Alerts{triggeredCount > 0 ? ` (${triggeredCount})` : ""}
             </TabButton>
@@ -130,6 +134,8 @@ export default function App() {
         <CorrelationView />
       ) : tab === "suggestions" ? (
         <SuggestionsPanel onSelect={setSelectedSymbol} />
+      ) : tab === "research" ? (
+        meta && <ResearchPanel allCommodities={meta.commodities} onSelect={setSelectedSymbol} />
       ) : (
         meta && (
           <AlertsPanel allCommodities={meta.commodities} overview={overview} alerts={alerts} onAdd={addAlert} onRemove={removeAlert} />

@@ -21,4 +21,7 @@ export const api = {
   seasonality: (symbol, years = 10) => get(`/api/seasonality/${encodeURIComponent(symbol)}?years=${years}`),
   screener: () => get(`/api/screener`),
   backtest: (symbol, forwardDays = 21) => get(`/api/backtest/${encodeURIComponent(symbol)}?forward_days=${forwardDays}`),
+  opportunities: () => get(`/api/opportunities`),
+  events: (days = 14) => get(`/api/events?days=${days}`),
+  positioning: (symbol) => get(`/api/positioning/${encodeURIComponent(symbol)}`),
 };
