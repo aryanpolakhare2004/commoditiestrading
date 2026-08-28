@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import CommodityCard from "./CommodityCard.jsx";
 import SectorBar from "./SectorBar.jsx";
+import OverviewHeatmap from "./OverviewHeatmap.jsx";
 
 export default function Overview({ overview, sectors, onSelect, watchlist, onToggleWatch, triggeredSymbols }) {
   const [sectorFilter, setSectorFilter] = useState("All");
@@ -59,6 +60,14 @@ export default function Overview({ overview, sectors, onSelect, watchlist, onTog
             alertTriggered={triggeredSymbols.has(c.symbol)}
           />
         ))}
+      </div>
+
+      <div style={{ ...panelStyle, marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Today's Heatmap</div>
+        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
+          1-day % change, all covered commodities — darker means a bigger move.
+        </div>
+        <OverviewHeatmap commodities={overview.commodities} onSelect={onSelect} />
       </div>
 
       <div style={panelStyle}>

@@ -6,6 +6,9 @@ import ComparePicker from "./ComparePicker.jsx";
 import VolumeChart from "./VolumeChart.jsx";
 import RsiChart from "./RsiChart.jsx";
 import MacdChart from "./MacdChart.jsx";
+import VolatilityChart from "./VolatilityChart.jsx";
+import DrawdownChart from "./DrawdownChart.jsx";
+import ReturnsHistogram from "./ReturnsHistogram.jsx";
 import SeasonalityChart from "./SeasonalityChart.jsx";
 import SignalBadge from "./SignalBadge.jsx";
 import Delta from "./Delta.jsx";
@@ -306,6 +309,12 @@ export default function DetailView({ symbol, onBack, allCommodities, watched, on
           <RsiChart series={history.series} />
           <SectionLabel>MACD (12, 26, 9)</SectionLabel>
           <MacdChart series={history.series} />
+          <SectionLabel>Volatility (21-day, annualized)</SectionLabel>
+          <VolatilityChart series={history.series} />
+          <SectionLabel>Drawdown from peak</SectionLabel>
+          <DrawdownChart series={history.series} />
+          <SectionLabel>Daily Return Distribution</SectionLabel>
+          <ReturnsHistogram series={history.series} />
         </div>
       ) : (
         !error && <div style={{ ...panelStyle, color: "var(--text-muted)" }}>Loading chart data…</div>

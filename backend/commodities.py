@@ -13,6 +13,7 @@ COMMODITIES = [
     {"symbol": "HG=F", "name": "Copper", "sector": "Metals", "unit": "USD/lb"},
     {"symbol": "PL=F", "name": "Platinum", "sector": "Metals", "unit": "USD/oz"},
     {"symbol": "PA=F", "name": "Palladium", "sector": "Metals", "unit": "USD/oz"},
+    {"symbol": "ALI=F", "name": "Aluminum", "sector": "Metals", "unit": "USD/mt"},
     # Agriculture
     {"symbol": "ZC=F", "name": "Corn", "sector": "Agriculture", "unit": "USD/bu"},
     {"symbol": "ZW=F", "name": "Wheat", "sector": "Agriculture", "unit": "USD/bu"},
@@ -26,10 +27,13 @@ COMMODITIES = [
     {"symbol": "ZR=F", "name": "Rough Rice", "sector": "Agriculture", "unit": "USD/cwt"},
     {"symbol": "ZM=F", "name": "Soybean Meal", "sector": "Agriculture", "unit": "USD/ton"},
     {"symbol": "ZL=F", "name": "Soybean Oil", "sector": "Agriculture", "unit": "USD/lb"},
+    {"symbol": "DC=F", "name": "Milk (Class III)", "sector": "Agriculture", "unit": "USD/cwt"},
     # Livestock
     {"symbol": "LE=F", "name": "Live Cattle", "sector": "Livestock", "unit": "USD/lb"},
     {"symbol": "GF=F", "name": "Feeder Cattle", "sector": "Livestock", "unit": "USD/lb"},
     {"symbol": "HE=F", "name": "Lean Hogs", "sector": "Livestock", "unit": "USD/lb"},
+    # Materials
+    {"symbol": "LBR=F", "name": "Lumber", "sector": "Materials", "unit": "USD/mbf"},
 ]
 
 BY_SYMBOL = {c["symbol"]: c for c in COMMODITIES}
