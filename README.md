@@ -24,6 +24,12 @@ what's here.
     the historical backtest of the technical signal (see below).
   - **Seasonality** — this year's cumulative return by calendar day against
     the historical average.
+  - **Trade Setup** — daily and weekly classical pivot points, recent swing
+    highs/lows, and a position-size calculator (account size, risk %, entry,
+    stop → contracts, dollar risk, notional value) using reference contract
+    specs (`backend/contracts.py`) — verify exact specs with your broker
+    before sizing a real position, especially for the lower-confidence,
+    thinner-traded contracts it flags.
   - **News** — recent headlines with per-item and aggregate sentiment.
 - **Correlation** — a heatmap of how each commodity's daily returns correlate
   with every other one, over the trailing 6 months.
@@ -37,6 +43,14 @@ what's here.
 - **Research** — a small version of a "research engine" pipeline: raw data →
   signals → event detection → asset mapping → EV scoring → backtest → ranked
   opportunities. See its own section below.
+- **Calendar** — recurring release schedule for reports known to move these
+  markets: EIA petroleum/nat-gas inventory (weekly), USDA WASDE and Cattle on
+  Feed (monthly, approximate), CFTC COT (weekly). Computed, not fetched live
+  — see `backend/calendar_events.py`.
+- **Journal** — log your own trades (side, size, entry/exit, notes), with
+  unrealized P&L marked against live prices for open positions and realized
+  P&L/win-rate for closed ones. Stored in `localStorage`, private to your
+  browser, same as the watchlist and alerts.
 
 ## The Research pipeline
 
@@ -170,5 +184,12 @@ change it in both places if you'd rather use something else.
   /api/opportunities` is the heaviest endpoint (positioning backfill +
   price + news for all 28 symbols); expect up to ~30s on a fully cold cache,
   then 5-minute cached like everything else.
-- Watchlist and alerts are stored in the browser's `localStorage`, per
-  browser — they don't sync across devices or survive clearing site data.
+- Watchlist, alerts, and the trade journal are stored in the browser's
+  `localStorage`, per browser — they don't sync across devices or survive
+  clearing site data.
+- Contract specs (`backend/contracts.py`) are reference data, cross-checked
+  against Wikipedia for the long-standing major contracts but not fetched
+  from an authoritative source — aluminum, milk, lumber, and rough rice are
+  flagged `"confidence": "verify"` since those contracts are thinner-traded
+  or have changed more recently. The position calculator surfaces that flag;
+  always confirm against your broker before sizing a real position.

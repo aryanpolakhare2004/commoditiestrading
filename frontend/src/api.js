@@ -24,4 +24,11 @@ export const api = {
   opportunities: () => get(`/api/opportunities`),
   events: (days = 14) => get(`/api/events?days=${days}`),
   positioning: (symbol) => get(`/api/positioning/${encodeURIComponent(symbol)}`),
+  contracts: () => get(`/api/contracts`),
+  positionSize: (symbol, accountSize, riskPct, entry, stop) =>
+    get(
+      `/api/position-size?symbol=${encodeURIComponent(symbol)}&account_size=${accountSize}&risk_pct=${riskPct}&entry=${entry}&stop=${stop}`
+    ),
+  levels: (symbol) => get(`/api/levels/${encodeURIComponent(symbol)}`),
+  calendar: (days = 21) => get(`/api/calendar?days=${days}`),
 };

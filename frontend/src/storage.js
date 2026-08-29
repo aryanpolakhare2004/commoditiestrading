@@ -1,5 +1,6 @@
 const WATCHLIST_KEY = "commodities.watchlist";
 const ALERTS_KEY = "commodities.alerts";
+const JOURNAL_KEY = "commodities.journal";
 
 function safeParse(json, fallback) {
   try {
@@ -48,6 +49,22 @@ export const ALERT_TYPES = {
   change_above: { label: "1D change at or above", format: (v) => `+${v}%` },
   change_below: { label: "1D change at or below", format: (v) => `${v}%` },
 };
+
+export function loadJournal() {
+  try {
+    return safeParse(localStorage.getItem(JOURNAL_KEY), []);
+  } catch {
+    return [];
+  }
+}
+
+export function saveJournal(list) {
+  try {
+    localStorage.setItem(JOURNAL_KEY, JSON.stringify(list));
+  } catch {
+    // ditto
+  }
+}
 
 export function isAlertTriggered(alert, commodity) {
   if (!commodity || !commodity.available) return false;

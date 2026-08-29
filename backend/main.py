@@ -8,9 +8,12 @@ import yfinance as yf
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+import calendar_events
 import cftc
+import contracts
 import db
 import events as events_module
+import levels as levels_module
 import opportunity
 import relationships
 import signals as signals_module
@@ -402,6 +405,47 @@ def opportunities():
     payload = {"asOf": pd.Timestamp.utcnow().isoformat(), "entries": entries}
     cache_set(cache_key, payload)
     return payload
+
+
+@app.get("/api/contracts")
+def contract_specs():
+    return {"specs": contracts.SPECS}
+
+
+@app.get("/api/position-size")
+def position_size(symbol: str, account_size: float, risk_pct: float, entry: float, stop: float):
+    _validate_symbol(symbol)
+    if symbol not in contracts.SPECS:
+        raise HTTPException(status_code=404, detail=f"No contract spec for '{symbol}'")
+    if account_size <= 0 or risk_pct <= 0 or risk_pct > 100:
+        raise HTTPException(status_code=422, detail="account_size must be > 0 and 0 < risk_pct <= 100")
+    result = contracts.position_size(symbol, account_size, risk_pct, entry, stop)
+    if result is None:
+        raise HTTPException(status_code=422, detail="entry and stop must differ")
+    return result
+
+
+@app.get("/api/levels/{symbol}")
+def levels(symbol: str):
+    _validate_symbol(symbol)
+    cache_key = f"levels:{symbol}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+    df = _full_history(symbol)
+    payload = {
+        "symbol": symbol,
+        "meta": BY_SYMBOL[symbol],
+        "pivots": levels_module.pivot_points(df),
+        "swings": levels_module.swing_levels(df),
+    }
+    cache_set(cache_key, payload)
+    return payload
+
+
+@app.get("/api/calendar")
+def calendar(days: int = 21):
+    return {"events": calendar_events.upcoming_events(days_ahead=max(1, min(days, 90)))}
 
 
 @app.get("/api/db-status")
