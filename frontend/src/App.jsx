@@ -8,7 +8,18 @@ import SuggestionsPanel from "./components/SuggestionsPanel.jsx";
 import ResearchPanel from "./components/ResearchPanel.jsx";
 import CalendarView from "./components/CalendarView.jsx";
 import TradeJournal from "./components/TradeJournal.jsx";
-import { isAlertTriggered, loadAlerts, loadWatchlist, saveAlerts, saveWatchlist } from "./storage.js";
+import SearchBar from "./components/SearchBar.jsx";
+import {
+  isAlertTriggered,
+  loadAlerts,
+  loadNotificationsEnabled,
+  loadNotifiedAlertIds,
+  loadWatchlist,
+  saveAlerts,
+  saveNotificationsEnabled,
+  saveNotifiedAlertIds,
+  saveWatchlist,
+} from "./storage.js";
 
 export default function App() {
   const [tab, setTab] = useState("overview"); // overview | correlation | alerts
@@ -18,6 +29,8 @@ export default function App() {
   const [error, setError] = useState(null);
   const [watchlist, setWatchlist] = useState(() => loadWatchlist());
   const [alerts, setAlerts] = useState(() => loadAlerts());
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => loadNotificationsEnabled());
+  const [notifiedAlertIds, setNotifiedAlertIds] = useState(() => loadNotifiedAlertIds());
 
   useEffect(() => {
     api.commodities().then(setMeta).catch((e) => setError(e.message));
@@ -40,6 +53,42 @@ export default function App() {
 
   useEffect(() => saveWatchlist(watchlist), [watchlist]);
   useEffect(() => saveAlerts(alerts), [alerts]);
+  useEffect(() => saveNotificationsEnabled(notificationsEnabled), [notificationsEnabled]);
+  useEffect(() => saveNotifiedAlertIds(notifiedAlertIds), [notifiedAlertIds]);
+
+  function enableNotifications() {
+    if (typeof Notification === "undefined") return;
+    Notification.requestPermission().then((perm) => {
+      setNotificationsEnabled(perm === "granted");
+    });
+  }
+
+  // Fire a browser notification only on the transition into "triggered" —
+  // never repeat for an alert that's already been notified about.
+  useEffect(() => {
+    if (!notificationsEnabled || !overview || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    const bySymbol = new Map(overview.commodities.map((c) => [c.symbol, c]));
+    const currentlyTriggered = new Set(alerts.filter((a) => isAlertTriggered(a, bySymbol.get(a.symbol))).map((a) => a.id));
+
+    const newlyTriggered = alerts.filter((a) => currentlyTriggered.has(a.id) && !notifiedAlertIds.has(a.id));
+    if (newlyTriggered.length > 0) {
+      for (const a of newlyTriggered) {
+        const c = bySymbol.get(a.symbol);
+        const name = meta?.commodities.find((x) => x.symbol === a.symbol)?.name || a.symbol;
+        new Notification(`${name} alert triggered`, {
+          body: `Now ${c?.last?.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${c?.unit || ""}`,
+        });
+      }
+    }
+
+    // Keep notifiedAlertIds in sync with what's currently triggered, so an
+    // alert that un-triggers and re-triggers later notifies again.
+    const stillRelevant = new Set([...notifiedAlertIds].filter((id) => currentlyTriggered.has(id)));
+    for (const a of newlyTriggered) stillRelevant.add(a.id);
+    if (stillRelevant.size !== notifiedAlertIds.size || [...stillRelevant].some((id) => !notifiedAlertIds.has(id))) {
+      setNotifiedAlertIds(stillRelevant);
+    }
+  }, [alerts, overview, notificationsEnabled, meta]);
 
   function toggleWatch(symbol) {
     setWatchlist((prev) => (prev.includes(symbol) ? prev.filter((s) => s !== symbol) : [...prev, symbol]));
@@ -74,8 +123,11 @@ export default function App() {
             Live futures data via Yahoo Finance · updated every 5 minutes
           </div>
         </div>
+        {selectedSymbol === null && meta && (
+          <SearchBar allCommodities={meta.commodities} onSelect={setSelectedSymbol} />
+        )}
         {selectedSymbol === null && (
-          <nav style={{ display: "flex", gap: 6 }}>
+          <nav style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <TabButton active={tab === "overview"} onClick={() => setTab("overview")}>
               Overview
             </TabButton>
@@ -150,7 +202,15 @@ export default function App() {
         meta && <TradeJournal allCommodities={meta.commodities} overview={overview} />
       ) : (
         meta && (
-          <AlertsPanel allCommodities={meta.commodities} overview={overview} alerts={alerts} onAdd={addAlert} onRemove={removeAlert} />
+          <AlertsPanel
+            allCommodities={meta.commodities}
+            overview={overview}
+            alerts={alerts}
+            onAdd={addAlert}
+            onRemove={removeAlert}
+            notificationsEnabled={notificationsEnabled}
+            onEnableNotifications={enableNotifications}
+          />
         )
       )}
     </div>

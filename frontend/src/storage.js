@@ -1,6 +1,8 @@
 const WATCHLIST_KEY = "commodities.watchlist";
 const ALERTS_KEY = "commodities.alerts";
 const JOURNAL_KEY = "commodities.journal";
+const NOTIFIED_KEY = "commodities.notifiedAlerts";
+const NOTIFICATIONS_ENABLED_KEY = "commodities.notificationsEnabled";
 
 function safeParse(json, fallback) {
   try {
@@ -61,6 +63,38 @@ export function loadJournal() {
 export function saveJournal(list) {
   try {
     localStorage.setItem(JOURNAL_KEY, JSON.stringify(list));
+  } catch {
+    // ditto
+  }
+}
+
+export function loadNotifiedAlertIds() {
+  try {
+    return new Set(safeParse(localStorage.getItem(NOTIFIED_KEY), []));
+  } catch {
+    return new Set();
+  }
+}
+
+export function saveNotifiedAlertIds(idSet) {
+  try {
+    localStorage.setItem(NOTIFIED_KEY, JSON.stringify([...idSet]));
+  } catch {
+    // ditto
+  }
+}
+
+export function loadNotificationsEnabled() {
+  try {
+    return localStorage.getItem(NOTIFICATIONS_ENABLED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function saveNotificationsEnabled(enabled) {
+  try {
+    localStorage.setItem(NOTIFICATIONS_ENABLED_KEY, enabled ? "true" : "false");
   } catch {
     // ditto
   }

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ALERT_TYPES, isAlertTriggered } from "../storage.js";
 
-export default function AlertsPanel({ allCommodities, overview, alerts, onAdd, onRemove }) {
+export default function AlertsPanel({ allCommodities, overview, alerts, onAdd, onRemove, notificationsEnabled, onEnableNotifications }) {
   const [symbol, setSymbol] = useState(allCommodities[0]?.symbol || "");
   const [type, setType] = useState("price_above");
   const [threshold, setThreshold] = useState("");
@@ -37,10 +37,21 @@ export default function AlertsPanel({ allCommodities, overview, alerts, onAdd, o
   return (
     <div>
       <div style={panelStyle}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Price Alerts</div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>
-          Checked against live data on every refresh (every 5 minutes). No push notifications — check back here or
-          watch for the flag on the overview card.
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Price Alerts</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14, maxWidth: 480 }}>
+              Checked against live data on every refresh (every 5 minutes) while this tab is open.
+              {notificationsEnabled
+                ? " Browser notifications are on — you'll get one the moment an alert first crosses its threshold."
+                : " Enable browser notifications to get one the moment an alert first crosses its threshold, even in another tab."}
+            </div>
+          </div>
+          {!notificationsEnabled && (
+            <button onClick={onEnableNotifications} style={notifyButtonStyle}>
+              🔔 Enable notifications
+            </button>
+          )}
         </div>
 
         <form onSubmit={submit} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 18 }}>
@@ -117,6 +128,17 @@ export default function AlertsPanel({ allCommodities, overview, alerts, onAdd, o
     </div>
   );
 }
+
+const notifyButtonStyle = {
+  border: "1px solid var(--border)",
+  borderRadius: 999,
+  padding: "6px 14px",
+  fontSize: 12.5,
+  background: "transparent",
+  color: "var(--text-secondary)",
+  cursor: "pointer",
+  flexShrink: 0,
+};
 
 const panelStyle = {
   background: "var(--surface-1)",

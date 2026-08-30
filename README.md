@@ -39,7 +39,16 @@ what's here.
   backtest edge shown alongside it.
 - **Alerts** — set a price or 1-day % change threshold per commodity; crossed
   thresholds flag the overview card and a badge on the Alerts tab. Checked
-  against live data on every refresh, no push notifications.
+  against live data on every refresh (every 5 minutes while a tab is open).
+  Optional browser notifications fire once, right when an alert first
+  crosses its threshold — enable them from the Alerts tab.
+- **Search** — a search box in the header jumps straight to any commodity by
+  name, symbol, or sector.
+- **Journal** — log your own trades (side, size, entry/exit, notes), with
+  unrealized P&L marked against live prices for open positions, realized
+  P&L/win-rate for closed ones, and an exposure-by-sector breakdown (gross
+  and net) across whatever's currently open. Stored in `localStorage`,
+  private to your browser.
 - **Research** — a small version of a "research engine" pipeline: raw data →
   signals → event detection → asset mapping → EV scoring → backtest → ranked
   opportunities. See its own section below.
@@ -47,10 +56,6 @@ what's here.
   markets: EIA petroleum/nat-gas inventory (weekly), USDA WASDE and Cattle on
   Feed (monthly, approximate), CFTC COT (weekly). Computed, not fetched live
   — see `backend/calendar_events.py`.
-- **Journal** — log your own trades (side, size, entry/exit, notes), with
-  unrealized P&L marked against live prices for open positions and realized
-  P&L/win-rate for closed ones. Stored in `localStorage`, private to your
-  browser, same as the watchlist and alerts.
 
 ## The Research pipeline
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import { loadJournal, saveJournal } from "../storage.js";
+import ExposureBreakdown from "./ExposureBreakdown.jsx";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -120,6 +121,13 @@ export default function TradeJournal({ allCommodities, overview }) {
         />
         <Stat label="Win rate" value={winRate === null ? "—" : `${winRate.toFixed(0)}%`} />
       </div>
+
+      {open.length > 0 && (
+        <div style={{ ...panelStyle, marginBottom: 24 }}>
+          <div style={sectionLabelStyle}>Exposure by Sector (open positions)</div>
+          <ExposureBreakdown openTrades={open} allCommodities={allCommodities} specs={specs} priceBySymbol={priceBySymbol} />
+        </div>
+      )}
 
       <form onSubmit={addTrade} style={formStyle}>
         <select value={form.symbol} onChange={(e) => setForm((f) => ({ ...f, symbol: e.target.value }))} style={selectStyle}>
@@ -276,6 +284,13 @@ function Stat({ label, value, color }) {
     </div>
   );
 }
+
+const panelStyle = {
+  background: "var(--surface-1)",
+  border: "1px solid var(--border)",
+  borderRadius: 12,
+  padding: 16,
+};
 
 const formStyle = {
   display: "flex",
