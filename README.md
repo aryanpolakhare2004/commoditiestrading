@@ -248,4 +248,6 @@ change it in both places if you'd rather use something else.
   iPath commodity ETNs) have since been delisted and were swapped for equity
   alternatives instead. A handful of commodities (oats, rough rice, milk)
   don't have a good direct pure-play and fall back to a broad agriculture
-  ETF (DBA).
+  ETF (DBA). 74 tickers across the 28 commodities as of this writing (2-5
+  each); each also carries its own VADER news sentiment via the same
+  pipeline as the commodity's own News tab.

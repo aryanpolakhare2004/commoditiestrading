@@ -9,6 +9,8 @@ const TYPE_LABEL = {
   processor: "Processor",
   refiner: "Refiner",
   streamer: "Streamer",
+  services: "Services",
+  input_cost: "Input cost",
   etf: "ETF",
 };
 
