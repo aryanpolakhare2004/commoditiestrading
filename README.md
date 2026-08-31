@@ -32,8 +32,9 @@ what's here.
     thinner-traded contracts it flags.
   - **Related** — curated stocks and ETFs with direct exposure to this
     commodity (producers, consumers, processors, or a tracking ETF), each
-    with live price, 1-day change, and a sparkline. See
-    `backend/related_assets.py`.
+    with live price, 1-day change, a sparkline, and its own VADER news
+    sentiment (same scoring as the commodity's own News tab) — click a card
+    to expand its headlines. See `backend/related_assets.py`.
   - **News** — recent headlines with per-item and aggregate sentiment.
 - **Correlation** — a heatmap of how each commodity's daily returns correlate
   with every other one, over the trailing 6 months.

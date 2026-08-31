@@ -362,6 +362,13 @@ def related(symbol: str):
     tickers = [e["symbol"] for e in entries]
     raw = yf.download(tickers=tickers, period="1mo", interval="1d", group_by="ticker", threads=True, auto_adjust=True, progress=False)
 
+    def news_for(t: str) -> dict:
+        scored = score_headlines(_fetch_news_raw(t, limit=5))
+        return {"items": scored, "sentiment": aggregate_sentiment(scored)}
+
+    with ThreadPoolExecutor(max_workers=len(tickers)) as pool:
+        news_by_ticker = dict(zip(tickers, pool.map(news_for, tickers)))
+
     items = []
     for e in entries:
         t = e["symbol"]
@@ -369,8 +376,9 @@ def related(symbol: str):
             df = raw[t].dropna(how="all")
         except Exception:
             df = pd.DataFrame()
+        news = news_by_ticker.get(t, {"items": [], "sentiment": aggregate_sentiment([])})
         if df.empty:
-            items.append({**e, "available": False})
+            items.append({**e, "available": False, "news": news["items"], "sentiment": news["sentiment"]})
             continue
         close = df["Close"].dropna()
         change1d = pct_change_over(close, 1)
@@ -380,6 +388,8 @@ def related(symbol: str):
             "last": round(float(close.iloc[-1]), 2),
             "change1d": None if change1d is None else round(change1d, 2),
             "sparkline": [round(float(v), 2) for v in close.tail(21).tolist()],
+            "news": news["items"],
+            "sentiment": news["sentiment"],
         })
 
     payload = {"symbol": symbol, "items": items}
