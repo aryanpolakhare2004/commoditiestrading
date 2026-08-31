@@ -16,6 +16,7 @@ import events as events_module
 import levels as levels_module
 import opportunity
 import relationships
+import related_assets
 import signals as signals_module
 from analysis import build_seasonality, build_signal, dataframe_to_series, pct_change_over
 from backtest import backtest_signal
@@ -342,6 +343,46 @@ def positioning(symbol: str):
 @app.get("/api/events")
 def event_feed(days: int = 14):
     return {"events": events_module.recent_events(days=max(1, min(days, 90)))}
+
+
+@app.get("/api/related/{symbol}")
+def related(symbol: str):
+    _validate_symbol(symbol)
+    entries = related_assets.related_for(symbol)
+    if not entries:
+        return {"symbol": symbol, "items": []}
+
+    cache_key = f"related:{symbol}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    tickers = [e["symbol"] for e in entries]
+    raw = yf.download(tickers=tickers, period="1mo", interval="1d", group_by="ticker", threads=True, auto_adjust=True, progress=False)
+
+    items = []
+    for e in entries:
+        t = e["symbol"]
+        try:
+            df = raw[t].dropna(how="all")
+        except Exception:
+            df = pd.DataFrame()
+        if df.empty:
+            items.append({**e, "available": False})
+            continue
+        close = df["Close"].dropna()
+        change1d = pct_change_over(close, 1)
+        items.append({
+            **e,
+            "available": True,
+            "last": round(float(close.iloc[-1]), 2),
+            "change1d": None if change1d is None else round(change1d, 2),
+            "sparkline": [round(float(v), 2) for v in close.tail(21).tolist()],
+        })
+
+    payload = {"symbol": symbol, "items": items}
+    cache_set(cache_key, payload)
+    return payload
 
 
 @app.get("/api/opportunities")

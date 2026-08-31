@@ -12,6 +12,7 @@ import ReturnsHistogram from "./ReturnsHistogram.jsx";
 import SeasonalityChart from "./SeasonalityChart.jsx";
 import BacktestEvidence from "./BacktestEvidence.jsx";
 import TradeSetupPanel from "./TradeSetupPanel.jsx";
+import RelatedAssets from "./RelatedAssets.jsx";
 import SignalBadge from "./SignalBadge.jsx";
 import Delta from "./Delta.jsx";
 import NewsList from "./NewsList.jsx";
@@ -33,6 +34,7 @@ const TABS = [
   { key: "risk", label: "Risk & Backtest" },
   { key: "tradesetup", label: "Trade Setup" },
   { key: "seasonality", label: "Seasonality" },
+  { key: "related", label: "Related" },
   { key: "news", label: "News" },
 ];
 
@@ -74,6 +76,7 @@ export default function DetailView({ symbol, onBack, allCommodities, watched, on
   const [news, setNews] = useState(null);
   const [seasonality, setSeasonality] = useState(null);
   const [backtest, setBacktest] = useState(null);
+  const [related, setRelated] = useState(null);
   const [error, setError] = useState(null);
   const [hoverPoint, setHoverPoint] = useState(null);
   const [compare, setCompare] = useState([]);
@@ -104,6 +107,18 @@ export default function DetailView({ symbol, onBack, allCommodities, watched, on
       .news(symbol)
       .then((n) => !cancelled && setNews(n))
       .catch(() => !cancelled && setNews({ items: [] }));
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRelated(null);
+    api
+      .related(symbol)
+      .then((r) => !cancelled && setRelated(r))
+      .catch(() => !cancelled && setRelated({ items: [] }));
     return () => {
       cancelled = true;
     };
@@ -407,6 +422,17 @@ export default function DetailView({ symbol, onBack, allCommodities, watched, on
             ) : (
               <div style={{ color: "var(--text-muted)" }}>Loading seasonality…</div>
             )}
+          </div>
+        )}
+
+        {tab === "related" && (
+          <div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
+              Curated stocks and ETFs with direct exposure to this commodity — producers, consumers, processors, or a
+              tracking ETF. Domain knowledge, not a statistical correlation; a company's stock price reflects far
+              more than just this one input.
+            </div>
+            {related ? <RelatedAssets items={related.items} /> : <div style={{ color: "var(--text-muted)" }}>Loading…</div>}
           </div>
         )}
 

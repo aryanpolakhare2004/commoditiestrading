@@ -30,6 +30,10 @@ what's here.
     specs (`backend/contracts.py`) — verify exact specs with your broker
     before sizing a real position, especially for the lower-confidence,
     thinner-traded contracts it flags.
+  - **Related** — curated stocks and ETFs with direct exposure to this
+    commodity (producers, consumers, processors, or a tracking ETF), each
+    with live price, 1-day change, and a sparkline. See
+    `backend/related_assets.py`.
   - **News** — recent headlines with per-item and aggregate sentiment.
 - **Correlation** — a heatmap of how each commodity's daily returns correlate
   with every other one, over the trailing 6 months.
@@ -198,3 +202,10 @@ change it in both places if you'd rather use something else.
   flagged `"confidence": "verify"` since those contracts are thinner-traded
   or have changed more recently. The position calculator surfaces that flag;
   always confirm against your broker before sizing a real position.
+- Related stocks/ETFs (`backend/related_assets.py`) are curated, not derived
+  — every ticker was checked against Yahoo Finance before being added, but a
+  few obvious picks (BAL for cotton, NIB for cocoa, JO for coffee — all
+  iPath commodity ETNs) have since been delisted and were swapped for equity
+  alternatives instead. A handful of commodities (oats, rough rice, milk)
+  don't have a good direct pure-play and fall back to a broad agriculture
+  ETF (DBA).

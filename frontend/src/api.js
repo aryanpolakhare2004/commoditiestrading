@@ -31,4 +31,5 @@ export const api = {
     ),
   levels: (symbol) => get(`/api/levels/${encodeURIComponent(symbol)}`),
   calendar: (days = 21) => get(`/api/calendar?days=${days}`),
+  related: (symbol) => get(`/api/related/${encodeURIComponent(symbol)}`),
 };
