@@ -8,6 +8,7 @@ import SuggestionsPanel from "./components/SuggestionsPanel.jsx";
 import ResearchPanel from "./components/ResearchPanel.jsx";
 import CalendarView from "./components/CalendarView.jsx";
 import TradeJournal from "./components/TradeJournal.jsx";
+import PortfolioPlanner from "./components/PortfolioPlanner.jsx";
 import SearchBar from "./components/SearchBar.jsx";
 import {
   isAlertTriggered,
@@ -140,6 +141,9 @@ export default function App() {
             <TabButton active={tab === "research"} onClick={() => setTab("research")}>
               Research
             </TabButton>
+            <TabButton active={tab === "portfolio"} onClick={() => setTab("portfolio")}>
+              Portfolio
+            </TabButton>
             <TabButton active={tab === "calendar"} onClick={() => setTab("calendar")}>
               Calendar
             </TabButton>
@@ -196,6 +200,8 @@ export default function App() {
         <SuggestionsPanel onSelect={setSelectedSymbol} />
       ) : tab === "research" ? (
         meta && <ResearchPanel allCommodities={meta.commodities} onSelect={setSelectedSymbol} />
+      ) : tab === "portfolio" ? (
+        meta && <PortfolioPlanner allCommodities={meta.commodities} />
       ) : tab === "calendar" ? (
         meta && <CalendarView allCommodities={meta.commodities} />
       ) : tab === "journal" ? (

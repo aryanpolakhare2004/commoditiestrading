@@ -7,6 +7,7 @@ import pandas as pd
 import yfinance as yf
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 import calendar_events
 import cftc
@@ -15,6 +16,7 @@ import db
 import events as events_module
 import levels as levels_module
 import opportunity
+import portfolio as portfolio_module
 import relationships
 import related_assets
 import signals as signals_module
@@ -487,6 +489,86 @@ def levels(symbol: str):
 @app.get("/api/calendar")
 def calendar(days: int = 21):
     return {"events": calendar_events.upcoming_events(days_ahead=max(1, min(days, 90)))}
+
+
+class PortfolioRequest(BaseModel):
+    amount: float = Field(gt=0)
+    symbols: list[str] = Field(min_length=2, max_length=15)
+    method: str = "riskparity"  # equal | riskparity | tilted
+    horizon_days: int = Field(default=63, ge=10, le=504)
+    num_paths: int = Field(default=2000, ge=200, le=5000)
+
+
+@app.post("/api/portfolio/simulate")
+def portfolio_simulate(req: PortfolioRequest):
+    for s in req.symbols:
+        _validate_symbol(s)
+    if req.method not in ("equal", "riskparity", "tilted"):
+        raise HTTPException(status_code=422, detail="method must be one of: equal, riskparity, tilted")
+
+    histories = {s: _safe_full_history(s) for s in req.symbols}
+    excluded = [s for s in req.symbols if histories[s].empty]
+    usable = [s for s in req.symbols if s not in excluded]
+    if len(usable) < 2:
+        raise HTTPException(status_code=422, detail="Need at least 2 selected commodities with usable price data")
+
+    closes = {s: histories[s]["Close"].dropna() for s in usable}
+    returns = pd.DataFrame(closes).pct_change().dropna(how="all")
+
+    vol_by_symbol, score_by_symbol, last_price = {}, {}, {}
+    for s in usable:
+        r = returns[s].dropna().tail(252)
+        if len(r) > 20:
+            vol_by_symbol[s] = float(r.std() * np.sqrt(252))
+        score_by_symbol[s] = build_signal(histories[s])["score"]
+        last_price[s] = float(closes[s].iloc[-1])
+
+    thin_data = [s for s in usable if s not in vol_by_symbol]
+    usable = [s for s in usable if s in vol_by_symbol]
+    excluded = excluded + thin_data
+    if len(usable) < 2:
+        raise HTTPException(status_code=422, detail="Not enough overlapping history across the selected commodities")
+
+    if req.method == "equal":
+        weights = portfolio_module.equal_weights(usable)
+    elif req.method == "tilted":
+        weights = portfolio_module.opportunity_tilted_weights(vol_by_symbol, score_by_symbol)
+    else:
+        weights = portfolio_module.inverse_volatility_weights(vol_by_symbol)
+
+    try:
+        sim = portfolio_module.simulate_portfolio(returns, weights, req.horizon_days, req.num_paths)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    allocation = []
+    for s in usable:
+        c = BY_SYMBOL[s]
+        spec = contracts.SPECS.get(s)
+        dollar_amount = weights[s] * req.amount
+        entry = {
+            "symbol": s,
+            "name": c["name"],
+            "sector": c["sector"],
+            "weight": round(weights[s] * 100, 2),
+            "dollarAmount": round(dollar_amount, 2),
+            "lastPrice": round(last_price[s], 4),
+            "volatility": round(vol_by_symbol[s] * 100, 1),
+            "technicalScore": score_by_symbol[s],
+        }
+        if spec:
+            notional_per_contract = last_price[s] * spec["contractSize"]
+            entry["contractsEquivalent"] = round(dollar_amount / notional_per_contract, 3) if notional_per_contract else None
+        allocation.append(entry)
+    allocation.sort(key=lambda e: e["weight"], reverse=True)
+
+    return {
+        "amount": req.amount,
+        "method": req.method,
+        "allocation": allocation,
+        "excludedSymbols": excluded,
+        "simulation": sim,
+    }
 
 
 @app.get("/api/db-status")

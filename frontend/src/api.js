@@ -9,6 +9,19 @@ async function get(path) {
   return res.json();
 }
 
+async function post(path, body) {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const body2 = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText}: ${body2}`);
+  }
+  return res.json();
+}
+
 export const api = {
   commodities: () => get("/api/commodities"),
   overview: (period = "6mo") => get(`/api/overview?period=${period}`),
@@ -32,4 +45,6 @@ export const api = {
   levels: (symbol) => get(`/api/levels/${encodeURIComponent(symbol)}`),
   calendar: (days = 21) => get(`/api/calendar?days=${days}`),
   related: (symbol) => get(`/api/related/${encodeURIComponent(symbol)}`),
+  simulatePortfolio: (amount, symbols, method, horizonDays, numPaths = 2000) =>
+    post("/api/portfolio/simulate", { amount, symbols, method, horizon_days: horizonDays, num_paths: numPaths }),
 };

@@ -60,6 +60,9 @@ what's here.
   markets: EIA petroleum/nat-gas inventory (weekly), USDA WASDE and Cattle on
   Feed (monthly, approximate), CFTC COT (weekly). Computed, not fetched live
   — see `backend/calendar_events.py`.
+- **Portfolio** — pick an investment amount and a set of commodities, choose
+  an allocation method, and run a Monte Carlo simulation of the resulting
+  portfolio. See its own section below.
 
 ## The Research pipeline
 
@@ -117,6 +120,42 @@ raw data (price, CFTC positioning, news)
   wired in yet — see `backend/opportunity.py`'s docstring for where it slots
   in. FRED/EIA/USDA (rates, inventories, crop forecasts) are the same kind
   of documented-but-not-built extension, each needing its own free API key.
+
+## Portfolio allocation & simulation
+
+`backend/portfolio.py`, `POST /api/portfolio/simulate`. Two deliberately
+separate steps, for the same reason the research pipeline keeps signals and
+event detection apart:
+
+1. **Allocation weights** come from a documented, deterministic rule —
+   never a return forecast, because commodity expected returns aren't
+   reliably estimable from history the way volatility is:
+   - *Equal weight* — same dollar amount in every selected commodity.
+   - *Risk parity (inverse volatility)* — more dollars to calmer
+     commodities, fewer to volatile ones, so each position contributes
+     roughly equal risk. The default, and the most defensible of the three
+     since it doesn't require guessing which way anything is headed.
+   - *Opportunity-tilted* — risk parity, nudged by up to 30% of the
+     portfolio toward names with a stronger current technical score
+     (`backend/analysis.py`'s signal, not the fuller Research composite).
+     The cap is deliberate: a heuristic score can influence the allocation,
+     never dominate it.
+2. **The simulation** is a block bootstrap over real historical daily
+   returns — it resamples the same calendar day's return across every
+   selected commodity together (not independently per asset), so the
+   correlation structure between them (energy names moving together,
+   precious metals moving together) is preserved rather than assumed away
+   by a parametric model. It answers "if the future drew from the same
+   distribution of daily moves this history did, what range of outcomes
+   results" — not a prediction of what will happen. Output is a full
+   percentile fan (5th/25th/50th/75th/95th) over the chosen horizon, plus
+   probability of loss and max-drawdown percentiles, all computed from
+   thousands of resampled paths (2,000 by default).
+
+The Portfolio tab asks how much to invest, which commodities, which method,
+and which horizon, then shows both — the allocation table and the fan
+chart — together, so the sizing decision and the honest range of what could
+happen sit side by side.
 
 ### The "is this a buy" answer, and its limits
 
