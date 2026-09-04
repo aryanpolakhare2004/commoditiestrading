@@ -159,6 +159,20 @@ export default function PortfolioPlanner({ allCommodities }) {
             <Stat label="Probability of loss" value={`${(result.simulation.probabilityOfLoss * 100).toFixed(0)}%`} />
             <Stat label="Median max drawdown" value={fmtPct(result.simulation.maxDrawdown.median)} color="var(--delta-down)" />
             <Stat label="Worst 5% case drawdown" value={fmtPct(result.simulation.maxDrawdown.p5Worst)} color="var(--delta-down)" />
+            {result.diversification && (
+              <Stat
+                label="Diversification"
+                value={result.diversification.rating}
+                sub={`avg. pairwise correlation ${result.diversification.avgPairwiseCorrelation.toFixed(2)}`}
+                color={
+                  result.diversification.avgPairwiseCorrelation < 0.2
+                    ? "var(--delta-up)"
+                    : result.diversification.avgPairwiseCorrelation < 0.5
+                      ? undefined
+                      : "var(--delta-down)"
+                }
+              />
+            )}
           </div>
 
           <div style={panelStyle}>

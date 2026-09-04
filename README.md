@@ -8,6 +8,10 @@ what's here.
 
 ## What it does
 
+- **Brief** (the landing tab) — today's top gainers/losers, material changes
+  detected in the last 48 hours, any of your alerts currently triggered, and
+  the top-ranked opportunities, all in one glance.
+
 - **Overview** — live price, 1D/5D/1M change, and a sparkline for 28
   commodity futures across Energy, Metals, Agriculture, Livestock, and
   Materials, a Finviz-style heatmap tile grid (1-day % change), and a
@@ -63,7 +67,12 @@ what's here.
   — see `backend/calendar_events.py`.
 - **Portfolio** — pick an investment amount and a set of commodities, choose
   an allocation method, and run a Monte Carlo simulation of the resulting
-  portfolio. See its own section below.
+  portfolio, including an average-pairwise-correlation diversification score
+  ("Well diversified" / "Moderately diversified" / "Concentrated"). See its
+  own section below.
+- **News** — recent headlines across all 28 commodities in one feed, VADER
+  sentiment-scored, filterable to positive/negative, most recent first.
+  `GET /api/news-feed`.
 
 ## The Research pipeline
 

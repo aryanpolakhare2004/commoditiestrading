@@ -1,5 +1,6 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from typing import Optional
 
 import numpy as np
@@ -230,6 +231,20 @@ def seasonality(symbol: str, years: int = 10):
     return payload
 
 
+def _normalize_pub_date(pub_date) -> str | None:
+    """yfinance news items give a publish date either as an ISO string
+    (content.pubDate) or a raw Unix epoch int (providerPublishTime) —
+    normalize both to an ISO string so callers can sort/compare freely."""
+    if pub_date is None:
+        return None
+    if isinstance(pub_date, str):
+        return pub_date
+    try:
+        return datetime.fromtimestamp(pub_date, tz=timezone.utc).isoformat()
+    except (TypeError, ValueError, OSError):
+        return None
+
+
 def _fetch_news_raw(symbol: str, limit: int = 8) -> list[dict]:
     cache_key = f"newsraw:{symbol}:{limit}"
     cached = cache_get(cache_key)
@@ -249,7 +264,7 @@ def _fetch_news_raw(symbol: str, limit: int = 8) -> list[dict]:
         link = (content.get("canonicalUrl") or {}).get("url") or (content.get("clickThroughUrl") or {}).get("url") or item.get("link")
         publisher = (content.get("provider") or {}).get("displayName") or item.get("publisher")
         pub_date = content.get("pubDate") or item.get("providerPublishTime")
-        out.append({"title": title, "link": link, "publisher": publisher, "publishedAt": pub_date})
+        out.append({"title": title, "link": link, "publisher": publisher, "publishedAt": _normalize_pub_date(pub_date)})
 
     cache_set(cache_key, out)
     return out
@@ -393,6 +408,33 @@ def related(symbol: str):
         })
 
     payload = {"symbol": symbol, "items": items}
+    cache_set(cache_key, payload)
+    return payload
+
+
+@app.get("/api/news-feed")
+def news_feed(limit_per_symbol: int = 4):
+    """Recent headlines across every tracked commodity, each scored with the
+    same VADER pipeline as the per-commodity News tab, combined into one
+    feed sorted by recency."""
+    limit_per_symbol = max(1, min(limit_per_symbol, 10))
+    cache_key = f"newsfeed:{limit_per_symbol}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    def one(c):
+        raw = _fetch_news_raw(c["symbol"], limit=limit_per_symbol)
+        scored = score_headlines(raw)
+        return [{**item, "symbol": c["symbol"], "name": c["name"], "sector": c["sector"]} for item in scored]
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = pool.map(one, COMMODITIES)
+
+    items = [item for sublist in results for item in sublist]
+    items.sort(key=lambda i: i.get("publishedAt") or "", reverse=True)
+
+    payload = {"asOf": pd.Timestamp.utcnow().isoformat(), "items": items}
     cache_set(cache_key, payload)
     return payload
 
@@ -551,6 +593,8 @@ def portfolio_simulate(req: PortfolioRequest):
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
+    diversification = portfolio_module.diversification_score(returns, usable)
+
     allocation = []
     for s in usable:
         c = BY_SYMBOL[s]
@@ -578,6 +622,7 @@ def portfolio_simulate(req: PortfolioRequest):
         "allocation": allocation,
         "excludedSymbols": excluded,
         "simulation": sim,
+        "diversification": diversification,
     }
 
 

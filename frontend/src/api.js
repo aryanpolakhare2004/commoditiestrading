@@ -47,4 +47,5 @@ export const api = {
   related: (symbol) => get(`/api/related/${encodeURIComponent(symbol)}`),
   simulatePortfolio: (amount, symbols, method, horizonDays, numPaths = 2000) =>
     post("/api/portfolio/simulate", { amount, symbols, method, horizon_days: horizonDays, num_paths: numPaths }),
+  newsFeed: (limitPerSymbol = 4) => get(`/api/news-feed?limit_per_symbol=${limitPerSymbol}`),
 };

@@ -95,3 +95,25 @@ def simulate_portfolio(returns: pd.DataFrame, weights: dict, horizon_days: int, 
         },
         "pathPercentiles": path_percentiles,
     }
+
+
+def diversification_score(returns: pd.DataFrame, symbols: list[str]) -> dict | None:
+    """Average pairwise correlation of daily returns across the selected
+    commodities — a concrete, honest number for whether a portfolio is
+    actually diversified or just several names that move together."""
+    if len(symbols) < 2:
+        return None
+    corr = returns[symbols].corr()
+    n = len(symbols)
+    off_diagonal_sum = corr.values.sum() - n  # subtract the n ones on the diagonal
+    pair_count = n * (n - 1)
+    avg_corr = off_diagonal_sum / pair_count
+
+    if avg_corr < 0.2:
+        rating = "Well diversified"
+    elif avg_corr < 0.5:
+        rating = "Moderately diversified"
+    else:
+        rating = "Concentrated — these move together"
+
+    return {"avgPairwiseCorrelation": round(float(avg_corr), 3), "rating": rating}

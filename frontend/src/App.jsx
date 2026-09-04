@@ -9,6 +9,8 @@ import ResearchPanel from "./components/ResearchPanel.jsx";
 import CalendarView from "./components/CalendarView.jsx";
 import TradeJournal from "./components/TradeJournal.jsx";
 import PortfolioPlanner from "./components/PortfolioPlanner.jsx";
+import MarketNewsFeed from "./components/MarketNewsFeed.jsx";
+import DailyBrief from "./components/DailyBrief.jsx";
 import SearchBar from "./components/SearchBar.jsx";
 import {
   isAlertTriggered,
@@ -23,7 +25,7 @@ import {
 } from "./storage.js";
 
 export default function App() {
-  const [tab, setTab] = useState("overview"); // overview | correlation | alerts
+  const [tab, setTab] = useState("brief");
   const [selectedSymbol, setSelectedSymbol] = useState(null);
   const [meta, setMeta] = useState(null);
   const [overview, setOverview] = useState(null);
@@ -129,6 +131,9 @@ export default function App() {
         )}
         {selectedSymbol === null && (
           <nav style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <TabButton active={tab === "brief"} onClick={() => setTab("brief")}>
+              Brief
+            </TabButton>
             <TabButton active={tab === "overview"} onClick={() => setTab("overview")}>
               Overview
             </TabButton>
@@ -143,6 +148,9 @@ export default function App() {
             </TabButton>
             <TabButton active={tab === "portfolio"} onClick={() => setTab("portfolio")}>
               Portfolio
+            </TabButton>
+            <TabButton active={tab === "news"} onClick={() => setTab("news")}>
+              News
             </TabButton>
             <TabButton active={tab === "calendar"} onClick={() => setTab("calendar")}>
               Calendar
@@ -181,6 +189,8 @@ export default function App() {
           watched={watchlist.includes(selectedSymbol)}
           onToggleWatch={toggleWatch}
         />
+      ) : tab === "brief" ? (
+        meta && <DailyBrief overview={overview} allCommodities={meta.commodities} alerts={alerts} onSelect={setSelectedSymbol} />
       ) : tab === "overview" ? (
         overview && meta ? (
           <Overview
@@ -202,6 +212,8 @@ export default function App() {
         meta && <ResearchPanel allCommodities={meta.commodities} onSelect={setSelectedSymbol} />
       ) : tab === "portfolio" ? (
         meta && <PortfolioPlanner allCommodities={meta.commodities} />
+      ) : tab === "news" ? (
+        meta && <MarketNewsFeed allCommodities={meta.commodities} onSelect={setSelectedSymbol} />
       ) : tab === "calendar" ? (
         meta && <CalendarView allCommodities={meta.commodities} />
       ) : tab === "journal" ? (
