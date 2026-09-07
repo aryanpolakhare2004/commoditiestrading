@@ -11,6 +11,8 @@ what's here.
 - **Brief** (the landing tab) — today's top gainers/losers, material changes
   detected in the last 48 hours, any of your alerts currently triggered, and
   the top-ranked opportunities, all in one glance.
+- **Theme** — a toggle in the header cycles System → Light → Dark, stored per
+  browser. "System" follows your OS setting live; the other two pin it.
 
 - **Overview** — live price, 1D/5D/1M change, and a sparkline for 28
   commodity futures across Energy, Metals, Agriculture, Livestock, and
@@ -105,7 +107,12 @@ raw data (price, CFTC positioning, news)
   extreme, a technical signal flip, an unusually large week-over-week shift
   in CFTC positioning. Persisted to a SQLite `events` table so re-running
   detection on an already-scored day is a no-op, not a duplicate. Visible in
-  the Research tab's "What Changed" feed and `GET /api/events`.
+  the Research tab's "What Changed" feed and `GET /api/events`. Each event
+  also carries its own historical backtest (`backend/event_backtest.py`):
+  replaying the same threshold logic across the instrument's full history to
+  answer "what happened over the following N days every time a crossing
+  like this one occurred before" — directly comparable evidence for the
+  specific event you're looking at, not just the overall technical signal.
 - **Asset mapping** (`backend/relationships.py`) — two independent sources,
   kept separate: curated commodity-complex groupings and known cross-complex
   economic links (corn as a cattle feed cost, the soybean crush spread,

@@ -17,12 +17,17 @@ import {
   loadAlerts,
   loadNotificationsEnabled,
   loadNotifiedAlertIds,
+  loadThemePreference,
   loadWatchlist,
   saveAlerts,
   saveNotificationsEnabled,
   saveNotifiedAlertIds,
+  saveThemePreference,
   saveWatchlist,
 } from "./storage.js";
+
+const THEME_CYCLE = { system: "light", light: "dark", dark: "system" };
+const THEME_ICON = { system: "🖥️", light: "☀️", dark: "🌙" };
 
 export default function App() {
   const [tab, setTab] = useState("brief");
@@ -34,6 +39,16 @@ export default function App() {
   const [alerts, setAlerts] = useState(() => loadAlerts());
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => loadNotificationsEnabled());
   const [notifiedAlertIds, setNotifiedAlertIds] = useState(() => loadNotifiedAlertIds());
+  const [theme, setTheme] = useState(() => loadThemePreference());
+
+  useEffect(() => {
+    saveThemePreference(theme);
+    if (theme === "system") {
+      delete document.documentElement.dataset.theme;
+    } else {
+      document.documentElement.dataset.theme = theme;
+    }
+  }, [theme]);
 
   useEffect(() => {
     api.commodities().then(setMeta).catch((e) => setError(e.message));
@@ -126,9 +141,18 @@ export default function App() {
             Live futures data via Yahoo Finance · updated every 5 minutes
           </div>
         </div>
-        {selectedSymbol === null && meta && (
-          <SearchBar allCommodities={meta.commodities} onSelect={setSelectedSymbol} />
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {selectedSymbol === null && meta && (
+            <SearchBar allCommodities={meta.commodities} onSelect={setSelectedSymbol} />
+          )}
+          <button
+            onClick={() => setTheme((prev) => THEME_CYCLE[prev])}
+            title={`Theme: ${theme} (click to change)`}
+            style={themeButtonStyle}
+          >
+            {THEME_ICON[theme]} {theme}
+          </button>
+        </div>
         {selectedSymbol === null && (
           <nav style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <TabButton active={tab === "brief"} onClick={() => setTab("brief")}>
@@ -234,6 +258,18 @@ export default function App() {
     </div>
   );
 }
+
+const themeButtonStyle = {
+  border: "1px solid var(--border)",
+  borderRadius: 999,
+  padding: "6px 12px",
+  fontSize: 12.5,
+  background: "var(--surface-1)",
+  color: "var(--text-secondary)",
+  cursor: "pointer",
+  flexShrink: 0,
+  textTransform: "capitalize",
+};
 
 function TabButton({ active, onClick, children }) {
   return (

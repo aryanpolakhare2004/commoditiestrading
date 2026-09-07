@@ -3,6 +3,7 @@ const ALERTS_KEY = "commodities.alerts";
 const JOURNAL_KEY = "commodities.journal";
 const NOTIFIED_KEY = "commodities.notifiedAlerts";
 const NOTIFICATIONS_ENABLED_KEY = "commodities.notificationsEnabled";
+const THEME_KEY = "commodities.theme";
 
 function safeParse(json, fallback) {
   try {
@@ -95,6 +96,23 @@ export function loadNotificationsEnabled() {
 export function saveNotificationsEnabled(enabled) {
   try {
     localStorage.setItem(NOTIFICATIONS_ENABLED_KEY, enabled ? "true" : "false");
+  } catch {
+    // ditto
+  }
+}
+
+export function loadThemePreference() {
+  try {
+    const v = localStorage.getItem(THEME_KEY);
+    return v === "light" || v === "dark" ? v : "system";
+  } catch {
+    return "system";
+  }
+}
+
+export function saveThemePreference(theme) {
+  try {
+    localStorage.setItem(THEME_KEY, theme);
   } catch {
     // ditto
   }

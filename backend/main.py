@@ -14,6 +14,7 @@ import calendar_events
 import cftc
 import contracts
 import db
+import event_backtest
 import events as events_module
 import levels as levels_module
 import opportunity
@@ -359,7 +360,21 @@ def positioning(symbol: str):
 
 @app.get("/api/events")
 def event_feed(days: int = 14):
-    return {"events": events_module.recent_events(days=max(1, min(days, 90)))}
+    events = events_module.recent_events(days=max(1, min(days, 90)))
+    if not events:
+        return {"events": events}
+
+    symbols = list({e["symbol"] for e in events if e["symbol"] in BY_SYMBOL})
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        histories = dict(zip(symbols, pool.map(_safe_full_history, symbols)))
+        positioning_histories = dict(zip(symbols, pool.map(_safe_positioning_history, symbols)))
+
+    for e in events:
+        full = histories.get(e["symbol"])
+        pos = positioning_histories.get(e["symbol"])
+        e["backtest"] = event_backtest.backtest_event_type(e["eventType"], full, pos) if full is not None and not full.empty else None
+
+    return {"events": events}
 
 
 @app.get("/api/related/{symbol}")
