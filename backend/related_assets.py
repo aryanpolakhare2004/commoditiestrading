@@ -64,15 +64,19 @@ RELATED = {
     ],
     "PL=F": [
         {"symbol": "SBSW", "name": "Sibanye Stillwater", "type": "producer"},
+        {"symbol": "IMPUY", "name": "Impala Platinum (ADR)", "type": "producer"},
         {"symbol": "PPLT", "name": "abrdn Physical Platinum Shares", "type": "etf"},
     ],
     "PA=F": [
         {"symbol": "SBSW", "name": "Sibanye Stillwater", "type": "producer"},
+        {"symbol": "IMPUY", "name": "Impala Platinum (ADR)", "type": "producer"},
         {"symbol": "PALL", "name": "abrdn Physical Palladium Shares", "type": "etf"},
     ],
     "ALI=F": [
         {"symbol": "AA", "name": "Alcoa", "type": "producer"},
         {"symbol": "CENX", "name": "Century Aluminum", "type": "producer"},
+        {"symbol": "KALU", "name": "Kaiser Aluminum", "type": "producer"},
+        {"symbol": "NHYDY", "name": "Norsk Hydro (ADR)", "type": "producer"},
     ],
     # Agriculture
     "ZC=F": [
@@ -99,46 +103,57 @@ RELATED = {
     "ZL=F": [
         {"symbol": "ADM", "name": "Archer-Daniels-Midland", "type": "processor"},
         {"symbol": "BG", "name": "Bunge Global", "type": "processor"},
+        {"symbol": "DAR", "name": "Darling Ingredients", "type": "processor"},
     ],
     "KC=F": [
         {"symbol": "SBUX", "name": "Starbucks", "type": "consumer"},
         {"symbol": "JVA", "name": "Coffee Holding Co", "type": "processor"},
+        {"symbol": "KDP", "name": "Keurig Dr Pepper", "type": "consumer"},
     ],
     "SB=F": [
         {"symbol": "PEP", "name": "PepsiCo", "type": "consumer"},
+        {"symbol": "HSY", "name": "The Hershey Company", "type": "consumer"},
         {"symbol": "CANE", "name": "Teucrium Sugar Fund", "type": "etf"},
     ],
     "CT=F": [
         {"symbol": "LEVI", "name": "Levi Strauss & Co.", "type": "consumer"},
         {"symbol": "GIL", "name": "Gildan Activewear", "type": "consumer"},
+        {"symbol": "VFC", "name": "VF Corporation", "type": "consumer"},
     ],
     "CC=F": [
         {"symbol": "HSY", "name": "The Hershey Company", "type": "consumer"},
         {"symbol": "MDLZ", "name": "Mondelez International", "type": "consumer"},
+        {"symbol": "NSRGY", "name": "Nestle (ADR)", "type": "consumer"},
     ],
     "OJ=F": [
         {"symbol": "KO", "name": "Coca-Cola (Minute Maid/Simply)", "type": "consumer"},
+        {"symbol": "KDP", "name": "Keurig Dr Pepper", "type": "consumer"},
     ],
     "ZO=F": [
         {"symbol": "GIS", "name": "General Mills", "type": "consumer"},
         {"symbol": "DBA", "name": "Invesco DB Agriculture Fund", "type": "etf"},
     ],
     "ZR=F": [
+        {"symbol": "INGR", "name": "Ingredion", "type": "processor"},
         {"symbol": "DBA", "name": "Invesco DB Agriculture Fund", "type": "etf"},
     ],
     "DC=F": [
+        {"symbol": "LWAY", "name": "Lifeway Foods", "type": "processor"},
         {"symbol": "DBA", "name": "Invesco DB Agriculture Fund", "type": "etf"},
     ],
     # Livestock
     "LE=F": [
         {"symbol": "TSN", "name": "Tyson Foods", "type": "processor"},
+        {"symbol": "JBS", "name": "JBS", "type": "processor"},
     ],
     "GF=F": [
         {"symbol": "TSN", "name": "Tyson Foods", "type": "processor"},
+        {"symbol": "JBS", "name": "JBS", "type": "processor"},
     ],
     "HE=F": [
         {"symbol": "TSN", "name": "Tyson Foods", "type": "processor"},
         {"symbol": "HRL", "name": "Hormel Foods", "type": "processor"},
+        {"symbol": "JBS", "name": "JBS", "type": "processor"},
     ],
     # Materials
     "LBR=F": [
