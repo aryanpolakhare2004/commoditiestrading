@@ -18,6 +18,16 @@ function buildThesis(e) {
     parts.push("Not enough historical instances of this setup on this instrument to estimate an edge.");
   }
 
+  if (e.curve) {
+    const longSide = e.direction === "bullish";
+    const earns = (e.curve.carryAnnualPct >= 0) === longSide;
+    if (e.curve.structure !== "flat") {
+      parts.push(
+        `The futures curve is in ${e.curve.structure} (${e.curve.carryAnnualPct >= 0 ? "+" : ""}${e.curve.carryAnnualPct}%/yr carry for a long), so a ${longSide ? "long" : "short"} ${earns ? "earns" : "pays"} carry while held.`
+      );
+    }
+  }
+
   if (e.upcomingCatalysts?.length > 0) {
     parts.push(
       `Scheduled within a week: ${e.upcomingCatalysts.map((c) => `${c.name} (${c.date})`).join("; ")} — price can gap through a stop on the release.`

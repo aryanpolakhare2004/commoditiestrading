@@ -13,10 +13,12 @@ from pydantic import BaseModel, Field
 import calendar_events
 import cftc
 import contracts
+import curves as curves_module
 import db
 import event_backtest
 import events as events_module
 import levels as levels_module
+import macro as macro_module
 import opportunity
 import portfolio as portfolio_module
 import relationships
@@ -468,6 +470,7 @@ def opportunities():
         return cached
 
     symbols = [c["symbol"] for c in COMMODITIES]
+    curve_by_symbol = _safe_curves()
     with ThreadPoolExecutor(max_workers=8) as pool:
         histories = dict(zip(symbols, pool.map(_safe_full_history, symbols)))
         positioning_signals = dict(zip(symbols, pool.map(_safe_positioning, symbols)))
@@ -485,7 +488,11 @@ def opportunities():
         if tail.empty or tail["Volume"].isna().all():
             dollar_volume[s] = None
         else:
-            dollar_volume[s] = float((tail["Close"] * tail["Volume"]).mean())
+            # Volume is in contracts, so dollar volume needs each contract's USD value —
+            # quoted price alone would rank a $6.75 copper quote as far less liquid
+            # than a $4,300 gold one, whatever the actual traded value.
+            per_contract = tail["Close"].map(lambda p: contracts.contract_value(s, p)) if s in contracts.SPECS else tail["Close"]
+            dollar_volume[s] = float((per_contract * tail["Volume"]).mean())
 
     def build_one(c):
         symbol = c["symbol"]
@@ -509,6 +516,10 @@ def opportunities():
 
         entry = opportunity.build_opportunity(c, bt, sig, dv_pct, related, all_events)
         entry["upcomingCatalysts"] = calendar_events.catalysts_for(symbol, days_ahead=7)
+        curve = curve_by_symbol.get(symbol)
+        entry["curve"] = None if not curve or not curve["structure"] else {
+            "structure": curve["structure"], "carryAnnualPct": curve["carryAnnualPct"],
+        }
         return entry
 
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -565,6 +576,54 @@ def trade_plan(symbol: str, account_size: float = 50000, risk_pct: float = 1.0, 
     atr_mult = max(0.5, min(atr_mult, 5.0))
     df = _full_history(symbol)
     return trade_plan_module.build_trade_plan(BY_SYMBOL[symbol], df, account_size, risk_pct, atr_mult)
+
+
+def _safe_curves() -> dict:
+    try:
+        return curves_module.all_curves()
+    except Exception:
+        return {}
+
+
+@app.get("/api/curves")
+def curves():
+    """Every commodity's forward curve summary: structure (backwardation /
+    contango / flat), annualized carry, and front-to-back slope."""
+    by_symbol = _safe_curves()
+    entries = [{**c, **by_symbol[c["symbol"]]} for c in COMMODITIES if by_symbol.get(c["symbol"], {}).get("points")]
+    return {"asOf": pd.Timestamp.utcnow().isoformat(), "curves": entries}
+
+
+@app.get("/api/curve/{symbol}")
+def curve(symbol: str):
+    _validate_symbol(symbol)
+    c = _safe_curves().get(symbol)
+    if not c or not c["points"]:
+        raise HTTPException(status_code=502, detail=f"No contract-month data for '{symbol}'")
+    return {"meta": BY_SYMBOL[symbol], **c}
+
+
+@app.get("/api/macro")
+def macro():
+    cache_key = "macro"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    macro_symbols = [m["symbol"] for m in macro_module.MACRO_SERIES]
+    symbols = [c["symbol"] for c in COMMODITIES]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        macro_histories = dict(zip(macro_symbols, pool.map(_safe_full_history, macro_symbols)))
+        histories = dict(zip(symbols, pool.map(_safe_full_history, symbols)))
+
+    sens = macro_module.sensitivities(histories, macro_histories)
+    payload = {
+        "asOf": pd.Timestamp.utcnow().isoformat(),
+        "drivers": macro_module.macro_snapshot(macro_histories),
+        "sensitivities": [{**c, **sens[c["symbol"]]} for c in COMMODITIES if c["symbol"] in sens],
+    }
+    cache_set(cache_key, payload)
+    return payload
 
 
 @app.get("/api/calendar")

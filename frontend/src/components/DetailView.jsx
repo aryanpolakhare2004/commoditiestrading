@@ -13,6 +13,7 @@ import SeasonalityChart from "./SeasonalityChart.jsx";
 import BacktestEvidence from "./BacktestEvidence.jsx";
 import TradeSetupPanel from "./TradeSetupPanel.jsx";
 import RelatedAssets from "./RelatedAssets.jsx";
+import CurvePanel from "./CurvePanel.jsx";
 import SignalBadge from "./SignalBadge.jsx";
 import Delta from "./Delta.jsx";
 import NewsList from "./NewsList.jsx";
@@ -33,6 +34,7 @@ const TABS = [
   { key: "technicals", label: "Technicals" },
   { key: "risk", label: "Risk & Backtest" },
   { key: "tradesetup", label: "Trade Setup" },
+  { key: "curve", label: "Curve" },
   { key: "seasonality", label: "Seasonality" },
   { key: "related", label: "Related" },
   { key: "news", label: "News" },
@@ -408,6 +410,8 @@ export default function DetailView({ symbol, onBack, allCommodities, watched, on
         {tab === "tradesetup" && (
           <TradeSetupPanel symbol={symbol} unit={meta?.unit} lastPrice={analysis?.last} />
         )}
+
+        {tab === "curve" && <CurvePanel symbol={symbol} />}
 
         {tab === "seasonality" && (
           <div>

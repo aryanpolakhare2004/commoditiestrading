@@ -60,6 +60,14 @@ for _symbol, _spec in SPECS.items():
     _spec["quoteScale"] = _QUOTE_SCALE.get(_symbol, 1.0)
 
 
+def contract_value(symbol: str, price: float) -> float | None:
+    """USD value of one contract at a Yahoo-quoted price."""
+    spec = SPECS.get(symbol)
+    if not spec:
+        return None
+    return price * spec["quoteScale"] * spec["contractSize"]
+
+
 def position_size(symbol: str, account_size: float, risk_pct: float, entry: float, stop: float) -> dict | None:
     spec = SPECS.get(symbol)
     if not spec or entry == stop:

@@ -3,6 +3,7 @@ import { api } from "./api.js";
 import Overview from "./components/Overview.jsx";
 import DetailView from "./components/DetailView.jsx";
 import CorrelationView from "./components/CorrelationView.jsx";
+import MacroView from "./components/MacroView.jsx";
 import AlertsPanel from "./components/AlertsPanel.jsx";
 import SuggestionsPanel from "./components/SuggestionsPanel.jsx";
 import ResearchPanel from "./components/ResearchPanel.jsx";
@@ -164,6 +165,9 @@ export default function App() {
             <TabButton active={tab === "correlation"} onClick={() => setTab("correlation")}>
               Correlation
             </TabButton>
+            <TabButton active={tab === "macro"} onClick={() => setTab("macro")}>
+              Macro
+            </TabButton>
             <TabButton active={tab === "suggestions"} onClick={() => setTab("suggestions")}>
               Suggestions
             </TabButton>
@@ -230,6 +234,8 @@ export default function App() {
         )
       ) : tab === "correlation" ? (
         <CorrelationView />
+      ) : tab === "macro" ? (
+        <MacroView onSelect={setSelectedSymbol} />
       ) : tab === "suggestions" ? (
         <SuggestionsPanel onSelect={setSelectedSymbol} />
       ) : tab === "research" ? (

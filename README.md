@@ -43,6 +43,12 @@ what's here.
     specs (`backend/contracts.py`) — verify exact specs with your broker
     before sizing a real position, especially for the lower-confidence,
     thinner-traded contracts it flags.
+  - **Curve** — the futures term structure: the next six liquid contract
+    months (e.g. `CLZ26.NYM`), backwardation/contango, and annualized carry
+    for a long position across the curve. Expired, stale and thin
+    front months in their final weeks are dropped, and strongly seasonal
+    curves (energy products, livestock, milk) are flagged. See
+    `backend/curves.py`; `GET /api/curves`, `GET /api/curve/{symbol}`.
   - **Related** — curated stocks and ETFs with direct exposure to this
     commodity (producers, consumers, processors, or a tracking ETF), each
     with live price, 1-day change, a sparkline, and its own VADER news
@@ -51,6 +57,11 @@ what's here.
   - **News** — recent headlines with per-item and aggregate sentiment.
 - **Correlation** — a heatmap of how each commodity's daily returns correlate
   with every other one, over the trailing 6 months.
+- **Macro** — the US Dollar Index, 10-year Treasury yield, S&P 500 and VIX
+  (level, 1D/1M change, where each sits in its 1-year range), and a sortable
+  table of every commodity's 6-month correlation with each, its dollar beta
+  and the dollar's implied 1-month effect on it, alongside its curve carry.
+  See `backend/macro.py`; `GET /api/macro`.
 - **Suggestions** — a screener that ranks all 28 commodities by a
   transparent, additive score combining the technical trend signal, price
   momentum (1M/3M), and news sentiment (VADER), with each entry's historical
@@ -135,7 +146,8 @@ raw data (price, CFTC positioning, news)
   the trade: a bearish setup is a short, so its "win" is the price falling
   (the backtest itself reports raw forward price returns). Adjusted for backtest sample-size
   confidence, elevated volatility, and a liquidity percentile across the
-  universe (based on trailing dollar volume). Every component of the final
+  universe (based on trailing dollar volume — contracts traded × each
+  contract's USD value, not the raw quoted price). Every component of the final
   "opportunity score" ships in the API response, not just the number.
 - **The "thesis"** shown per opportunity in the Research tab is a
   **template-assembled sentence from the structured facts above** — not
