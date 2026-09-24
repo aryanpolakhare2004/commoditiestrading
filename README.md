@@ -30,7 +30,14 @@ what's here.
     the historical backtest of the technical signal (see below).
   - **Seasonality** — this year's cumulative return by calendar day against
     the historical average.
-  - **Trade Setup** — daily and weekly classical pivot points, recent swing
+  - **Trade Setup** — a **Trade Plan** card on top: the signal's side
+    (long/short), entry at the last close, a stop at 2× the 14-day ATR, a
+    target at the setup's historical average win, reward:risk, that side's
+    real historical win rate/EV, contracts for your account and risk %, and
+    a warning for any scheduled report in the next 7 days that could gap
+    price through the stop (`GET /api/trade-plan/{symbol}`,
+    `backend/trade_plan.py`). "Use in calculator" loads it into the sizer.
+    Below it: daily and weekly classical pivot points, recent swing
     highs/lows, and a position-size calculator (account size, risk %, entry,
     stop → contracts, dollar risk, notional value) using reference contract
     specs (`backend/contracts.py`) — verify exact specs with your broker
@@ -64,8 +71,10 @@ what's here.
   signals → event detection → asset mapping → EV scoring → backtest → ranked
   opportunities. See its own section below.
 - **Calendar** — recurring release schedule for reports known to move these
-  markets: EIA petroleum/nat-gas inventory (weekly), USDA WASDE and Cattle on
-  Feed (monthly, approximate), CFTC COT (weekly). Computed, not fetched live
+  markets: EIA petroleum/nat-gas inventory (weekly), USDA WASDE, Cattle on
+  Feed and Cold Storage (monthly, approximate), USDA Hogs & Pigs and Grain
+  Stocks (quarterly, approximate), CFTC COT (weekly). Research-tab
+  opportunities flag any of these due for that market within 7 days. Computed, not fetched live
   — see `backend/calendar_events.py`.
 - **Portfolio** — pick an investment amount and a set of commodities, choose
   an allocation method, and run a Monte Carlo simulation of the resulting
@@ -122,7 +131,9 @@ raw data (price, CFTC positioning, news)
 - **EV scoring** (`backend/opportunity.py`) — `EV = P(win) x Upside -
   P(loss) x Downside`, using the *actual* historical win rate and average
   win/loss size for the current setup (bullish or bearish) from the
-  backtest — not an invented probability. Adjusted for backtest sample-size
+  backtest — not an invented probability. Stats are taken from the side of
+  the trade: a bearish setup is a short, so its "win" is the price falling
+  (the backtest itself reports raw forward price returns). Adjusted for backtest sample-size
   confidence, elevated volatility, and a liquidity percentile across the
   universe (based on trailing dollar volume). Every component of the final
   "opportunity score" ships in the API response, not just the number.

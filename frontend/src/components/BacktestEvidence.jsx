@@ -1,4 +1,4 @@
-function StatBlock({ title, summary, accent }) {
+function StatBlock({ title, summary, accent, side = "long" }) {
   if (!summary) {
     return (
       <div style={blockStyle}>
@@ -18,7 +18,8 @@ function StatBlock({ title, summary, accent }) {
       <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>average forward return</div>
       <div style={{ display: "flex", gap: 14, marginTop: 10, fontSize: 11.5, color: "var(--text-secondary)" }}>
         <span>
-          Win rate <strong>{summary.winRate.toFixed(0)}%</strong>
+          {side === "short" ? "Short win rate" : "Win rate"}{" "}
+          <strong>{(side === "short" ? 100 - summary.winRate : summary.winRate).toFixed(0)}%</strong>
         </span>
         <span>
           Median <strong>{summary.medianReturn >= 0 ? "+" : ""}{summary.medianReturn.toFixed(2)}%</strong>
@@ -60,7 +61,7 @@ export default function BacktestEvidence({ data }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
         <StatBlock title={`Bullish setup (score ≥ ${data.buyThreshold})`} summary={data.bullishSetup} />
         <StatBlock title="Baseline (all days)" summary={data.baseline} />
-        <StatBlock title={`Bearish setup (score ≤ ${data.sellThreshold})`} summary={data.bearishSetup} />
+        <StatBlock title={`Bearish setup (score ≤ ${data.sellThreshold})`} summary={data.bearishSetup} side="short" />
       </div>
 
       {edge !== null && edge !== undefined && (

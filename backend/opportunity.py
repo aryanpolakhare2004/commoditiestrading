@@ -11,6 +11,21 @@ hidden, via the confidence adjustment below.
 import relationships
 
 
+def trade_side_stats(setup: dict | None, is_bullish: bool) -> dict | None:
+    """Win rate and average win/loss from the point of view of someone
+    actually taking the trade the setup implies.
+
+    backtest._summarize describes forward PRICE returns, so its "winRate" is
+    the share of cases where price rose and "avgWin" the average up-move. For
+    a bearish setup the trade is a short, which profits when price falls —
+    its wins are the price's down-moves, and its losses the up-moves."""
+    if not setup or setup["sampleSize"] == 0:
+        return None
+    if is_bullish:
+        return {"winRate": setup["winRate"], "upside": setup["avgWin"], "downside": round(abs(setup["avgLoss"]), 2)}
+    return {"winRate": round(100 - setup["winRate"], 1), "upside": round(abs(setup["avgLoss"]), 2), "downside": setup["avgWin"]}
+
+
 def _confidence_adjustment(sample_size: int | None) -> float:
     if not sample_size:
         return -2.0
@@ -52,13 +67,12 @@ def build_opportunity(meta: dict, backtest: dict, signal_result: dict, dollar_vo
     is_bullish = (current_score or 0) >= 0
     setup = backtest.get("bullishSetup") if is_bullish else backtest.get("bearishSetup")
 
+    trade = trade_side_stats(setup, is_bullish)
     ev = None
     p_win = None
-    if setup and setup["sampleSize"] > 0:
-        p_win = setup["winRate"] / 100
-        upside = setup["avgWin"]
-        downside = abs(setup["avgLoss"])
-        ev = round(p_win * upside - (1 - p_win) * downside, 2)
+    if trade:
+        p_win = trade["winRate"] / 100
+        ev = round(p_win * trade["upside"] - (1 - p_win) * trade["downside"], 2)
 
     conf_adj = _confidence_adjustment(setup["sampleSize"] if setup else None)
     vol_pen = _volatility_penalty(signal_result["components"].get("volatility"))
@@ -76,8 +90,8 @@ def build_opportunity(meta: dict, backtest: dict, signal_result: dict, dollar_vo
         "currentScore": current_score,
         "ev": {
             "winProbability": None if p_win is None else round(p_win * 100, 1),
-            "upside": setup["avgWin"] if setup else None,
-            "downside": None if not setup else round(abs(setup["avgLoss"]), 2),
+            "upside": trade["upside"] if trade else None,
+            "downside": trade["downside"] if trade else None,
             "expectedValue": ev,
             "sampleSize": setup["sampleSize"] if setup else 0,
             "forwardDays": backtest.get("forwardDays"),

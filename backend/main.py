@@ -22,6 +22,7 @@ import portfolio as portfolio_module
 import relationships
 import related_assets
 import signals as signals_module
+import trade_plan as trade_plan_module
 from analysis import build_seasonality, build_signal, dataframe_to_series, pct_change_over
 from backtest import backtest_signal
 from commodities import BY_SYMBOL, COMMODITIES, SECTORS
@@ -87,7 +88,8 @@ def _history(symbol: str, period: str, interval: str = "1d") -> pd.DataFrame:
 def _safe_full_history(symbol: str) -> pd.DataFrame:
     try:
         return _full_history(symbol)
-    except HTTPException:
+    except Exception:
+        # Includes yfinance rate-limit errors on a symbol with no stored history yet.
         return pd.DataFrame()
 
 
@@ -505,7 +507,9 @@ def opportunities():
         related = relationships.related_via_correlation(symbol, corr_row)
         dv_pct = opportunity.liquidity_percentile(symbol, dollar_volume)
 
-        return opportunity.build_opportunity(c, bt, sig, dv_pct, related, all_events)
+        entry = opportunity.build_opportunity(c, bt, sig, dv_pct, related, all_events)
+        entry["upcomingCatalysts"] = calendar_events.catalysts_for(symbol, days_ahead=7)
+        return entry
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         entries = list(pool.map(build_one, COMMODITIES))
@@ -551,6 +555,16 @@ def levels(symbol: str):
     }
     cache_set(cache_key, payload)
     return payload
+
+
+@app.get("/api/trade-plan/{symbol}")
+def trade_plan(symbol: str, account_size: float = 50000, risk_pct: float = 1.0, atr_mult: float = 2.0):
+    _validate_symbol(symbol)
+    if account_size <= 0 or risk_pct <= 0 or risk_pct > 100:
+        raise HTTPException(status_code=422, detail="account_size must be > 0 and 0 < risk_pct <= 100")
+    atr_mult = max(0.5, min(atr_mult, 5.0))
+    df = _full_history(symbol)
+    return trade_plan_module.build_trade_plan(BY_SYMBOL[symbol], df, account_size, risk_pct, atr_mult)
 
 
 @app.get("/api/calendar")

@@ -53,10 +53,36 @@ MONTHLY_EVENTS = [
         "source": "usda.gov",
     },
     {
+        "name": "USDA Cold Storage",
+        "approxDay": 23,
+        "affected": ["HE=F", "LE=F"],
+        "source": "usda.gov",
+    },
+    {
         "name": "NOPA Soybean Crush Report",
         "approxDay": 15,
         "affected": ["ZS=F", "ZM=F", "ZL=F"],
         "source": "soya.org (NOPA)",
+    },
+]
+
+
+# Quarterly reports, likewise approximated — Hogs & Pigs lands in the last
+# week of the quarter-end month.
+QUARTERLY_EVENTS = [
+    {
+        "name": "USDA Quarterly Hogs & Pigs",
+        "months": [3, 6, 9, 12],
+        "approxDay": 26,
+        "affected": ["HE=F"],
+        "source": "usda.gov",
+    },
+    {
+        "name": "USDA Quarterly Grain Stocks",
+        "months": [3, 6, 9, 12],
+        "approxDay": 30,
+        "affected": ["ZC=F", "ZW=F", "ZS=F", "ZO=F"],
+        "source": "usda.gov",
     },
 ]
 
@@ -96,5 +122,29 @@ def upcoming_events(days_ahead: int = 21) -> list[dict]:
                     "affected": ev["affected"], "source": ev["source"], "frequency": "monthly (approximate)",
                 })
 
+    for ev in QUARTERLY_EVENTS:
+        for month_offset in range(0, 4):
+            year = today.year + (today.month - 1 + month_offset) // 12
+            month = (today.month - 1 + month_offset) % 12 + 1
+            if month not in ev["months"]:
+                continue
+            d = datetime(year, month, ev["approxDay"]).date()
+            if today <= d <= horizon:
+                out.append({
+                    "name": ev["name"], "date": d.strftime("%Y-%m-%d"), "time": None,
+                    "affected": ev["affected"], "source": ev["source"], "frequency": "quarterly (approximate)",
+                })
+
     out.sort(key=lambda e: e["date"])
     return out
+
+
+def catalysts_for(symbol: str, days_ahead: int = 7) -> list[dict]:
+    """Scheduled releases in the next `days_ahead` days that move this
+    specific market — the ones worth knowing about before opening a
+    position, since they can gap price straight through a stop. The
+    all-market weekly COT release is left out as noise."""
+    return [
+        e for e in upcoming_events(days_ahead)
+        if e["affected"] != "all" and symbol in e["affected"]
+    ]

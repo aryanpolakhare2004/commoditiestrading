@@ -42,6 +42,10 @@ export const api = {
     get(
       `/api/position-size?symbol=${encodeURIComponent(symbol)}&account_size=${accountSize}&risk_pct=${riskPct}&entry=${entry}&stop=${stop}`
     ),
+  tradePlan: (symbol, accountSize, riskPct, atrMult = 2) =>
+    get(
+      `/api/trade-plan/${encodeURIComponent(symbol)}?account_size=${accountSize}&risk_pct=${riskPct}&atr_mult=${atrMult}`
+    ),
   levels: (symbol) => get(`/api/levels/${encodeURIComponent(symbol)}`),
   calendar: (days = 21) => get(`/api/calendar?days=${days}`),
   related: (symbol) => get(`/api/related/${encodeURIComponent(symbol)}`),

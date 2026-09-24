@@ -8,8 +8,22 @@ Every value here should be treated as a starting point, not ground truth —
 always confirm against your broker or the exchange (CME/ICE) before sizing a
 real position.
 
-tickValue = tickSize * contractSize (both in the contract's own units).
+tickValue = tickSize * contractSize (both in the contract's own units, USD).
+
+Yahoo doesn't always quote in those units: grains, softs and livestock come
+through in cents (lean hogs at 79.875 means $0.79875/lb), milk per cwt while
+the contract is sized in lb, lumber per 1,000 board feet. `quoteScale`
+converts a move in Yahoo's quoted price into USD per contract unit; it's 1
+wherever the two already agree.
 """
+
+# Yahoo quote -> USD per contract unit, for every contract where they differ.
+_QUOTE_SCALE = {
+    **{s: 0.01 for s in ("ZC=F", "ZW=F", "ZS=F", "ZO=F", "KC=F", "SB=F", "CT=F", "OJ=F",
+                         "ZL=F", "LE=F", "GF=F", "HE=F")},
+    "DC=F": 0.01,    # USD/cwt quote, contract sized in lb
+    "LBR=F": 0.001,  # USD per 1,000 board ft quote, contract sized in board ft
+}
 
 SPECS = {
     "CL=F": {"contractSize": 1000, "unit": "bbl", "tickSize": 0.01, "tickValue": 10.0, "confidence": "high"},
@@ -42,6 +56,9 @@ SPECS = {
     "LBR=F": {"contractSize": 110000, "unit": "board ft", "tickSize": 0.10, "tickValue": 11.0, "confidence": "verify"},
 }
 
+for _symbol, _spec in SPECS.items():
+    _spec["quoteScale"] = _QUOTE_SCALE.get(_symbol, 1.0)
+
 
 def position_size(symbol: str, account_size: float, risk_pct: float, entry: float, stop: float) -> dict | None:
     spec = SPECS.get(symbol)
@@ -50,7 +67,7 @@ def position_size(symbol: str, account_size: float, risk_pct: float, entry: floa
 
     dollar_risk_budget = account_size * (risk_pct / 100)
     price_risk_per_unit = abs(entry - stop)
-    risk_per_contract = price_risk_per_unit * spec["contractSize"]
+    risk_per_contract = price_risk_per_unit * spec["quoteScale"] * spec["contractSize"]
 
     if risk_per_contract == 0:
         return None
@@ -68,5 +85,5 @@ def position_size(symbol: str, account_size: float, risk_pct: float, entry: floa
         "contractsExact": round(contracts_exact, 2),
         "contracts": contracts,
         "actualDollarRisk": round(actual_dollar_risk, 2),
-        "notionalValue": round(entry * spec["contractSize"] * max(contracts, 1), 2),
+        "notionalValue": round(entry * spec["quoteScale"] * spec["contractSize"] * max(contracts, 1), 2),
     }

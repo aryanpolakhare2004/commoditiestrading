@@ -29,6 +29,88 @@ function PivotTable({ title, pivots }) {
   );
 }
 
+function fmt(v) {
+  return v === null || v === undefined ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 4 });
+}
+
+function TradePlanCard({ plan, onUse }) {
+  if (!plan) return <div style={{ color: "var(--text-muted)", fontSize: 12.5 }}>Building trade plan…</div>;
+  const long = plan.side === "long";
+  const sideColor = long ? "var(--good)" : "var(--critical)";
+  const h = plan.history;
+  return (
+    <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 14, background: "var(--surface-1)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>Trade Plan</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: sideColor }}>{long ? "▲ LONG" : "▼ SHORT"}</span>
+        <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
+          signal score {plan.currentScore ?? "—"} · as of {plan.asOf}
+        </span>
+        <button onClick={onUse} disabled={plan.stop === null} style={{ ...buttonStyle, marginTop: 0, marginLeft: "auto", padding: "5px 10px", fontSize: 12 }}>
+          Use in calculator
+        </button>
+      </div>
+
+      {!plan.setupActive && (
+        <div style={{ color: "var(--warning)", fontSize: 12, marginBottom: 8 }}>
+          The signal only leans {long ? "bullish" : "bearish"} — it hasn't reached a backtested setup threshold, so the
+          history below describes a stronger signal than today's.
+        </div>
+      )}
+      {h && h.expectedValue < 0 && (
+        <div style={{ color: "var(--critical)", fontSize: 12, marginBottom: 8 }}>
+          Historically this {plan.side} setup lost money on average over {plan.forwardDays} trading days (EV {h.expectedValue}%).
+          Taking it means betting against its own history.
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "4px 24px" }}>
+        <div>
+          <LevelRow label="Entry (last close)" value={plan.entry} />
+          <LevelRow label={`Stop (${plan.atrMultiple}× ATR)`} value={plan.stop} color="var(--delta-down)" />
+          <LevelRow label="Target (avg win)" value={plan.target} color="var(--delta-up)" />
+          <LevelRow label="ATR (14d)" value={plan.atr} />
+        </div>
+        <div>
+          <LevelRow label="Reward : risk" value={plan.rewardToRisk} />
+          {h && (
+            <>
+              <LevelRow label={`Win rate (${plan.forwardDays}d)`} value={h.winRate} />
+              <LevelRow label="EV per trade (%)" value={h.expectedValue} />
+              <LevelRow label="Past cases" value={h.sampleSize} />
+            </>
+          )}
+        </div>
+        <div>
+          {plan.sizing ? (
+            <>
+              <LevelRow label="Contracts" value={plan.sizing.contracts} />
+              <LevelRow label="$ risk at stop" value={plan.sizing.actualDollarRisk} />
+              <LevelRow label="Notional" value={plan.sizing.notionalValue} />
+              {plan.sizing.contracts === 0 && (
+                <div style={{ color: "var(--warning)", fontSize: 11.5 }}>One contract exceeds your risk budget at this stop.</div>
+              )}
+            </>
+          ) : (
+            <div style={{ color: "var(--text-muted)", fontSize: 12 }}>No contract spec for sizing.</div>
+          )}
+        </div>
+      </div>
+
+      {plan.catalysts.length > 0 && (
+        <div style={{ marginTop: 10, fontSize: 12, color: "var(--warning)" }}>
+          ⚠ Scheduled within 7 days:{" "}
+          {plan.catalysts.map((c) => `${c.name} — ${c.date}${c.time ? ` ${c.time}` : ""}`).join("; ")}. Price can gap
+          through a stop on the release.
+        </div>
+      )}
+      <div style={{ marginTop: 8, fontSize: 11, color: "var(--text-muted)" }}>
+        Mechanical plan from historical statistics ({fmt(h?.sampleSize)} past cases), not a recommendation.
+      </div>
+    </div>
+  );
+}
+
 export default function TradeSetupPanel({ symbol, unit, lastPrice }) {
   const [levelsData, setLevelsData] = useState(null);
   const [spec, setSpec] = useState(null);
@@ -38,6 +120,23 @@ export default function TradeSetupPanel({ symbol, unit, lastPrice }) {
   const [stop, setStop] = useState("");
   const [result, setResult] = useState(null);
   const [calcError, setCalcError] = useState(null);
+  const [plan, setPlan] = useState(null);
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      if (!(accountSize > 0) || !(riskPct > 0)) return;
+      api.tradePlan(symbol, accountSize, riskPct).then(setPlan).catch(() => setPlan(null));
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [symbol, accountSize, riskPct]);
+
+  function usePlan() {
+    if (!plan || plan.stop === null) return;
+    setEntry(String(plan.entry));
+    setStop(String(plan.stop));
+    setResult(plan.sizing);
+    setCalcError(null);
+  }
 
   useEffect(() => {
     api.levels(symbol).then(setLevelsData).catch(() => setLevelsData(null));
@@ -66,6 +165,8 @@ export default function TradeSetupPanel({ symbol, unit, lastPrice }) {
   }
 
   return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <TradePlanCard plan={plan} onUse={usePlan} />
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
       <div>
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Key Levels</div>
@@ -148,6 +249,7 @@ export default function TradeSetupPanel({ symbol, unit, lastPrice }) {
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 }

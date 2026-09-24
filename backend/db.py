@@ -157,8 +157,14 @@ def ensure_history(symbol: str) -> pd.DataFrame:
                 # Small overlap re-fetches the last couple of stored days too, in case
                 # Yahoo revises a still-settling session's close after the fact.
                 start = (last_dt - timedelta(days=3)).strftime("%Y-%m-%d")
-                fresh = yf.Ticker(symbol).history(start=start, interval="1d", auto_adjust=True)
-                _upsert(conn, symbol, fresh)
+                try:
+                    fresh = yf.Ticker(symbol).history(start=start, interval="1d", auto_adjust=True)
+                    _upsert(conn, symbol, fresh)
+                except Exception:
+                    # Rate limits and network blips shouldn't take down every endpoint
+                    # when years of history are already stored — serve what we have,
+                    # at most a few days stale, and try the top-up again next request.
+                    pass
 
         return _read(conn, symbol)
     finally:

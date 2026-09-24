@@ -12,13 +12,19 @@ function buildThesis(e) {
 
   if (e.ev.sampleSize > 0) {
     parts.push(
-      `Historically, ${dirWord} setups like this one on ${e.name} were followed by a positive ${e.ev.forwardDays}-trading-day return ${e.ev.winProbability}% of the time (n=${e.ev.sampleSize}), averaging +${e.ev.upside}% on the wins vs ${e.ev.downside}% on the losses — an expected value of ${e.ev.expectedValue >= 0 ? "+" : ""}${e.ev.expectedValue}%.`
+      `Historically, ${dirWord} setups like this one on ${e.name} were followed by a profitable ${e.ev.forwardDays}-trading-day ${e.direction === "bullish" ? "long" : "short"} ${e.ev.winProbability}% of the time (n=${e.ev.sampleSize}), averaging +${e.ev.upside}% on the wins vs -${e.ev.downside}% on the losses — an expected value of ${e.ev.expectedValue >= 0 ? "+" : ""}${e.ev.expectedValue}%.`
     );
   } else {
     parts.push("Not enough historical instances of this setup on this instrument to estimate an edge.");
   }
 
-  if (e.recentEvents.length > 0) {
+  if (e.upcomingCatalysts?.length > 0) {
+    parts.push(
+      `Scheduled within a week: ${e.upcomingCatalysts.map((c) => `${c.name} (${c.date})`).join("; ")} — price can gap through a stop on the release.`
+    );
+  }
+
+    if (e.recentEvents.length > 0) {
     parts.push(`Recently: ${e.recentEvents.map((ev) => ev.description.toLowerCase()).join("; ")}.`);
   }
 
@@ -97,6 +103,11 @@ function OpportunityCard({ rank, e, expanded, onToggle }) {
             <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>
               Win {e.ev.winProbability}% · EV {e.ev.expectedValue >= 0 ? "+" : ""}
               {e.ev.expectedValue}% · n={e.ev.sampleSize}
+            </div>
+          )}
+          {e.upcomingCatalysts?.length > 0 && (
+            <div style={{ fontSize: 11.5, color: "var(--warning)", marginTop: 2 }}>
+              ⚠ {e.upcomingCatalysts.length === 1 ? e.upcomingCatalysts[0].name : `${e.upcomingCatalysts.length} scheduled reports`} within 7 days
             </div>
           )}
         </div>
